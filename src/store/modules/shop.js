@@ -1,7 +1,4 @@
-import axios from 'axios'
-
-// API URLs
-const API_URL = '/api/shops'
+import api from '@/services/api'
 
 const state = {
   shop: null
@@ -21,7 +18,7 @@ const actions = {
   async createShop({ commit, dispatch }, shopData) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.post(API_URL, shopData)
+      const data = await api.post('/shops', shopData)
       commit('SET_SHOP', data.shop)
       
       // Update user role to seller

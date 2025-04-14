@@ -1,111 +1,93 @@
-import authService from '@/services/auth.service';
+import api from '@/services/api'
 
 const state = {
   token: localStorage.getItem('token') || null,
   user: JSON.parse(localStorage.getItem('user')) || null,
-  loading: false,
-  error: null
-};
+}
 
 const getters = {
-  isLoggedIn: state => !!state.token,
+  isAuthenticated: state => !!state.token,
   currentUser: state => state.user,
-  isAdmin: state => state.user && state.user.role === 'admin',
-  isSeller: state => state.user && state.user.role === 'seller',
-  isDistributor: state => state.user && state.user.role === 'distributor',
-  authLoading: state => state.loading,
-  authError: state => state.error
-};
+  isAdmin: state => state.user?.role === 'admin',
+  isDistributor: state => state.user?.role === 'distributor',
+  isSeller: state => state.user?.role === 'seller',
+}
+
+const mutations = {
+  SET_USER(state, userData) {
+    state.user = userData
+    localStorage.setItem('user', JSON.stringify(userData))
+  },
+  SET_TOKEN(state, token) {
+    state.token = token
+    localStorage.setItem('token', token)
+  },
+  LOGOUT(state) {
+    state.user = null
+    state.token = null
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+  }
+}
 
 const actions = {
-  async login({ commit }, credentials) {
+  async login({ commit, dispatch }, credentials) {
     try {
-      commit('setLoading', true);
-      const response = await authService.login(credentials);
+      dispatch('setLoading', true, { root: true })
+      const data = await api.post('/users/login', credentials)
       
-      commit('setToken', response.token);
-      commit('setUser', response);
-      commit('setError', null);
+      commit('SET_USER', {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      })
+      commit('SET_TOKEN', data.token)
       
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response));
-      
-      return response;
+      return data
     } catch (error) {
-      commit('setError', error.response?.data?.message || 'Đăng nhập thất bại');
-      throw error;
+      dispatch('setError', error.response?.data?.message || 'Đăng nhập thất bại', { root: true })
+      throw error
     } finally {
-      commit('setLoading', false);
+      dispatch('setLoading', false, { root: true })
     }
   },
   
-  async register({ commit }, userData) {
+  async register({ commit, dispatch }, userData) {
     try {
-      commit('setLoading', true);
-      const response = await authService.register(userData);
+      dispatch('setLoading', true, { root: true })
+      const data = await api.post('/users/register', userData)
       
-      commit('setToken', response.token);
-      commit('setUser', response);
-      commit('setError', null);
+      commit('SET_USER', {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        role: data.role
+      })
+      commit('SET_TOKEN', data.token)
       
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response));
-      
-      return response;
+      return data
     } catch (error) {
-      commit('setError', error.response?.data?.message || 'Đăng ký thất bại');
-      throw error;
+      dispatch('setError', error.response?.data?.message || 'Đăng ký thất bại', { root: true })
+      throw error
     } finally {
-      commit('setLoading', false);
+      dispatch('setLoading', false, { root: true })
     }
   },
   
   logout({ commit }) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    commit('setToken', null);
-    commit('setUser', null);
+    commit('LOGOUT')
   },
   
-  async updateProfile({ commit, state }, userData) {
-    try {
-      commit('setLoading', true);
-      const response = await authService.updateProfile(userData);
-      
-      const updatedUser = { ...state.user, ...response };
-      commit('setUser', updatedUser);
-      
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      return response;
-    } catch (error) {
-      commit('setError', error.response?.data?.message || 'Cập nhật thất bại');
-      throw error;
-    } finally {
-      commit('setLoading', false);
-    }
+  initAuth({ commit, state }) {
+    // No need to set auth header here as it's handled by api.js interceptor
   }
-};
-
-const mutations = {
-  setToken(state, token) {
-    state.token = token;
-  },
-  setUser(state, user) {
-    state.user = user;
-  },
-  setLoading(state, loading) {
-    state.loading = loading;
-  },
-  setError(state, error) {
-    state.error = error;
-  }
-};
+}
 
 export default {
   namespaced: true,
   state,
   getters,
-  actions,
-  mutations
-};
+  mutations,
+  actions
+}

@@ -1,84 +1,112 @@
-<!-- Login.vue -->
 <template>
-    <div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div class="sm:mx-auto sm:w-full sm:max-w-md">
-        <img src="@/assets/logo.svg" alt="OCOP Market" class="mx-auto h-12 w-auto">
-        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Đăng nhập vào tài khoản
-        </h2>
-        <p class="mt-2 text-center text-sm text-gray-600">
-          Hoặc
-          <router-link to="/register" class="font-medium text-green-600 hover:text-green-500">
-            đăng ký tài khoản mới
+  <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="py-4 px-6 bg-green-700 text-white text-center">
+      <h2 class="text-2xl font-bold">Đăng nhập</h2>
+    </div>
+    
+    <form @submit.prevent="handleLogin" class="py-6 px-8">
+      <div class="mb-4" v-if="error">
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {{ error }}
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
+          Email
+        </label>
+        <input 
+          id="email"
+          type="email" 
+          v-model="email"
+          required
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          placeholder="Nhập email của bạn"
+        />
+      </div>
+      
+      <div class="mb-6">
+        <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+          Mật khẩu
+        </label>
+        <input 
+          id="password"
+          type="password" 
+          v-model="password"
+          required
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          placeholder="Nhập mật khẩu của bạn"
+        />
+        <div class="mt-1 text-right">
+          <router-link to="/forgot-password" class="text-sm text-green-700 hover:text-green-800">
+            Quên mật khẩu?
+          </router-link>
+        </div>
+      </div>
+      
+      <div class="mb-6">
+        <button 
+          type="submit" 
+          class="w-full bg-green-700 text-white py-2 px-4 rounded-md hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
+          :disabled="loading"
+        >
+          <span v-if="loading">Đang đăng nhập...</span>
+          <span v-else>Đăng nhập</span>
+        </button>
+      </div>
+      
+      <div class="text-center text-gray-700">
+        <p>Chưa có tài khoản? 
+          <router-link to="/register" class="text-green-700 hover:text-green-800 font-medium">
+            Đăng ký ngay
           </router-link>
         </p>
       </div>
+    </form>
+  </div>
+</template>
+
+<script>
+import { ref, computed } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter, useRoute } from 'vue-router';
+
+export default {
+  name: 'Login',
   
-      <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form class="space-y-6" @submit.prevent="login">
-            <div>
-              <label for="email" class="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <div class="mt-1">
-                <input 
-                  id="email" 
-                  type="email" 
-                  v-model="email" 
-                  required 
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                >
-              </div>
-            </div>
-  
-            <div>
-              <label for="password" class="block text-sm font-medium text-gray-700">
-                Mật khẩu
-              </label>
-              <div class="mt-1">
-                <input 
-                  id="password" 
-                  type="password" 
-                  v-model="password" 
-                  required 
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500"
-                >
-              </div>
-            </div>
-  
-            <div class="flex items-center justify-between">
-              <div class="flex items-center">
-                <input 
-                  id="remember-me" 
-                  type="checkbox" 
-                  v-model="rememberMe" 
-                  class="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                >
-                <label for="remember-me" class="ml-2 block text-sm text-gray-900">
-                  Ghi nhớ đăng nhập
-                </label>
-              </div>
-  
-              <div class="text-sm">
-                <a href="#" class="font-medium text-green-600 hover:text-green-500">
-                  Quên mật khẩu?
-                </a>
-              </div>
-            </div>
-  
-            <div>
-              <button 
-                type="submit" 
-                :disabled="loading"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <LoadingSpinner v-if="loading" class="h-5 w-5 mr-2" />
-                Đăng nhập
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </template>
+  setup() {
+    const store = useStore();
+    const router = useRouter();
+    const route = useRoute();
+    
+    const email = ref('');
+    const password = ref('');
+    const loading = computed(() => store.getters['auth/authLoading']);
+    const error = computed(() => store.getters['auth/authError']);
+    
+    const handleLogin = async () => {
+      try {
+        await store.dispatch('auth/login', { 
+          email: email.value, 
+          password: password.value 
+        });
+        
+        // Redirect to intended page or home
+        const redirectPath = route.query.redirect || '/';
+        router.push(redirectPath);
+      } catch (err) {
+        // Error is handled in the Vuex action
+        console.error('Login failed:', err);
+      }
+    };
+    
+    return {
+      email,
+      password,
+      loading,
+      error,
+      handleLogin
+    };
+  }
+}
+</script>

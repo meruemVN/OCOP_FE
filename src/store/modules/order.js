@@ -1,7 +1,4 @@
-import axios from 'axios'
-
-// API URLs
-const API_URL = '/api/orders'
+import api from '@/services/api'
 
 const state = {
   orders: [],
@@ -53,7 +50,7 @@ const actions = {
   async createOrder({ commit, dispatch }, orderData) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.post(API_URL, orderData)
+      const data = await api.post('/orders', orderData)
       commit('ADD_ORDER', data)
       return data
     } catch (error) {
@@ -67,7 +64,7 @@ const actions = {
   async getOrderById({ commit, dispatch }, orderId) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.get(`${API_URL}/${orderId}`)
+      const data = await api.get(`/orders/${orderId}`)
       commit('SET_ORDER', data)
       return data
     } catch (error) {
@@ -81,7 +78,7 @@ const actions = {
   async getMyOrders({ commit, dispatch }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.get(`${API_URL}/myorders`)
+      const data = await api.get('/orders/myorders')
       commit('SET_MY_ORDERS', data)
       return data
     } catch (error) {
@@ -95,7 +92,7 @@ const actions = {
   async payOrder({ commit, dispatch }, { orderId, paymentResult }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.put(`${API_URL}/${orderId}/pay`, paymentResult)
+      const data = await api.put(`/orders/${orderId}/pay`, paymentResult)
       commit('UPDATE_ORDER', data)
       return data
     } catch (error) {
@@ -111,7 +108,7 @@ const actions = {
   async getOrders({ commit, dispatch }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.get(API_URL)
+      const data = await api.get('/orders')
       commit('SET_ORDERS', data)
       return data
     } catch (error) {
@@ -125,7 +122,7 @@ const actions = {
   async deliverOrder({ commit, dispatch }, orderId) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.put(`${API_URL}/${orderId}/deliver`, {})
+      const data = await api.put(`/orders/${orderId}/deliver`, {})
       commit('UPDATE_ORDER', data)
       return data
     } catch (error) {
@@ -139,7 +136,7 @@ const actions = {
   async updateOrderStatus({ commit, dispatch }, { orderId, status }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.put(`${API_URL}/${orderId}/status`, { status })
+      const data = await api.put(`/orders/${orderId}/status`, { status })
       commit('UPDATE_ORDER', data)
       return data
     } catch (error) {
@@ -155,7 +152,7 @@ const actions = {
   async assignOrderToDistributor({ commit, dispatch }, { orderId, distributorId }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.put(`${API_URL}/${orderId}/assign`, { distributorId })
+      const data = await api.put(`/orders/${orderId}/assign`, { distributorId })
       commit('UPDATE_ORDER', data)
       return data
     } catch (error) {

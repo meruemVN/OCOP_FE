@@ -1,0 +1,48 @@
+/* src/assets/css/footer.css */
+
+.footer-custom {
+    background-color: #166534; /* Approximate Tailwind's green-800 */
+    color: #ffffff; /* White text */
+  }
+  
+  .footer-custom h5 { /* Style for the section headings */
+    color: #ffffff;
+    font-weight: bold;
+    margin-bottom: 1rem; /* Corresponds to mb-4 */
+  }
+  
+  .footer-custom ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .footer-custom ul li {
+    margin-bottom: 0.5rem; /* Spacing like Tailwind's space-y-2 */
+  }
+  
+  /* Styling for links within the custom footer */
+  .footer-custom a {
+    color: #d1fae5; /* Lighter green, approximate green-100/200 for visibility */
+    text-decoration: none;
+    transition: color 0.2s ease-in-out;
+  }
+  
+  .footer-custom a:hover {
+    color: #ffffff; /* White on hover */
+    text-decoration: none;
+  }
+  
+  /* Styling for the social media icons section */
+  .footer-social-icons a {
+     color: #ffffff; /* Ensure icons start white */
+  }
+  
+  .footer-social-icons a:hover {
+    color: #d1fae5; /* Lighter green on hover */
+  }
+  
+  /* Styling for the bottom border and copyright */
+  .footer-bottom {
+    border-top: 1px solid #059669; /* Approximate green-700 */
+    color: #d1fae5; /* Lighter text for copyright */
+  }

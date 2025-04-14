@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="d-flex flex-column min-vh-100">
     <Header />
-    <main class="flex-grow container mx-auto px-4 py-6">
+    <main class="flex-grow-1 container py-4">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -13,16 +13,16 @@
 </template>
 
 <script>
-import Header from '@/components/common/Navbar.vue'
-import Footer from '@/components/common/Footer.vue'
+import Header from '@/components/common/Navbar.vue';
+import Footer from '@/components/common/Footer.vue';
 
 export default {
   name: 'App',
   components: {
     Header,
-    Footer
-  }
-}
+    Footer,
+  },
+};
 </script>
 
 <style>

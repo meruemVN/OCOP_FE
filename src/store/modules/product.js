@@ -1,7 +1,4 @@
-import axios from 'axios'
-
-// API URLs
-const API_URL = '/api/products'
+import api from '@/services/api'
 
 const state = {
   products: [],
@@ -54,7 +51,7 @@ const actions = {
   async getProducts({ commit, dispatch }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.get(API_URL)
+      const data = await api.get('/products')
       commit('SET_PRODUCTS', data)
       return data
     } catch (error) {
@@ -68,7 +65,7 @@ const actions = {
   async getProductById({ commit, dispatch }, productId) {
     try {
       dispatch('setLoading', true, { root: true })
-      const { data } = await axios.get(`${API_URL}/${productId}`)
+      const data = await api.get(`/products/${productId}`)
       commit('SET_PRODUCT', data)
       return data
     } catch (error) {
@@ -94,7 +91,7 @@ const actions = {
       if (searchParams.pageNumber) queryParams.append('pageNumber', searchParams.pageNumber)
       if (searchParams.pageSize) queryParams.append('pageSize', searchParams.pageSize)
       
-      const { data } = await axios.get(`${API_URL}/search?${queryParams.toString()}`)
+      const data = await api.get(`/products/search?${queryParams.toString()}`)
       commit('SET_SEARCH_RESULTS', data)
       return data
     } catch (error) {
@@ -110,4 +107,49 @@ const actions = {
   async createProduct({ commit, dispatch }, productData) {
     try {
       dispatch('setLoading', true, { root: true })
-      const {
+      const data = await api.post('/products', productData)
+      commit('ADD_PRODUCT', data)
+      return data
+    } catch (error) {
+      dispatch('setError', error.response?.data?.message || 'Thêm sản phẩm thất bại', { root: true })
+      throw error
+    } finally {
+      dispatch('setLoading', false, { root: true })
+    }
+  },
+  
+  async updateProduct({ commit, dispatch }, { productId, productData }) {
+    try {
+      dispatch('setLoading', true, { root: true })
+      const data = await api.put(`/products/${productId}`, productData)
+      commit('UPDATE_PRODUCT', data)
+      return data
+    } catch (error) {
+      dispatch('setError', error.response?.data?.message || 'Cập nhật sản phẩm thất bại', { root: true })
+      throw error
+    } finally {
+      dispatch('setLoading', false, { root: true })
+    }
+  },
+  
+  async deleteProduct({ commit, dispatch }, productId) {
+    try {
+      dispatch('setLoading', true, { root: true })
+      await api.delete(`/products/${productId}`)
+      commit('REMOVE_PRODUCT', productId)
+    } catch (error) {
+      dispatch('setError', error.response?.data?.message || 'Xóa sản phẩm thất bại', { root: true })
+      throw error
+    } finally {
+      dispatch('setLoading', false, { root: true })
+    }
+  }
+}
+
+export default {
+  namespaced: true,
+  state,
+  getters,
+  mutations,
+  actions
+}

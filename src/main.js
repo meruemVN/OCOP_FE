@@ -2,28 +2,30 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faUser, faHome } from '@fortawesome/free-solid-svg-icons';
+
+// Import Bootstrap CSS
+import 'bootstrap/dist/css/bootstrap.min.css';
+// Import Bootstrap JS Bundle (if needed for other components)
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+
+// --- Correct Font Awesome imports ---
 import { library } from '@fortawesome/fontawesome-svg-core';
-import { 
-  faShoppingCart, faUser, faSignOutAlt, 
-  faStore, faCog, faClipboardList, faSearch,
-  faPlus, faMinus, faTrash, faEdit, faChevronDown
-} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import '@fortawesome/fontawesome-free/css/all.css';
 
-// Import Font Awesome icons
-library.add(
-  faShoppingCart, faUser, faSignOutAlt, 
-  faStore, faCog, faClipboardList, faSearch,
-  faPlus, faMinus, faTrash, faEdit, faChevronDown
-);
+// Add icons to the library
+library.add(faUser, faHome);
 
-// Create Vue app
+// --- End Font Awesome imports ---
+
+// *** Import your custom Footer CSS ***
+import './assets/css/footer.css'; // Adjust path if needed
+
 const app = createApp(App);
 
-// Register global components and plugins
 app.component('font-awesome-icon', FontAwesomeIcon);
 
-// Mount app with plugins
 app.use(store)
    .use(router)
    .mount('#app');

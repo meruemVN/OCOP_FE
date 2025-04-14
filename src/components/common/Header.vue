@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
     <header class="bg-green-700 text-white shadow">
       <div class="container mx-auto px-4 py-3 flex justify-between items-center">
         <div class="flex items-center">
@@ -75,4 +75,4 @@
       };
     }
   }
-  </script>
+  </script> -->
