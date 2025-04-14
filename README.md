@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # store
 
 ## Project setup
@@ -22,3 +23,6 @@ npm run lint
 
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).
+=======
+# OCOP_FE
+>>>>>>> 83772dc1b48f70689ef1449d73081b3892b1a148
