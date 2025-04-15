@@ -198,7 +198,8 @@
     },
     methods: {
       ...mapActions({
-        searchProducts: 'product/searchProducts'
+        searchProducts: 'product/searchProducts',
+        addToCart: 'cart/addToCart'
       }),
       async filterProducts() {
         try {
@@ -229,6 +230,22 @@
           this.filterProducts();
         }, 500);
       },
+      // handleAddToCart(item) {
+      //   this.addToCart(item)
+      //     .then(() => {
+      //       // Hiển thị thông báo thành công (nếu bạn có hệ thống toast)
+      //       if (this.$toast) {
+      //         this.$toast.success('Đã thêm sản phẩm vào giỏ hàng');
+      //       }
+      //     })
+      //     .catch(error => {
+      //       console.error('Error adding to cart:', error);
+      //       // Hiển thị thông báo lỗi (nếu bạn có hệ thống toast)
+      //       if (this.$toast) {
+      //         this.$toast.error('Không thể thêm sản phẩm vào giỏ hàng');
+      //       }
+      //     });
+      // },
       async goToPage(pageNumber) {
         if (pageNumber < 1 || pageNumber > this.pagination.pages) {
           return;

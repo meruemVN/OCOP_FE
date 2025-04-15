@@ -30,11 +30,14 @@ api.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    // Handle token expiration
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Chỉ redirect nếu user đang đăng nhập (có token)
+      const token = localStorage.getItem('token');
+      if (token) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

@@ -1,12 +1,10 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
-    <div class="container"> {/* Or container-fluid for full width */}
-      <!-- Logo / Brand Name -->
-      <router-link to="/" class="navbar-brand">
-        MyApp
+    <div class="container">
+      <router-link to="/" class="navbar-brand d-flex align-items-center">
+        <slot name="brand">MyApp</slot>
       </router-link>
 
-      <!-- Mobile Menu Button (Toggler) -->
       <button
         class="navbar-toggler"
         type="button"
@@ -19,114 +17,135 @@
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <!-- Navigation Links (Collapsible Content) -->
       <div class="collapse navbar-collapse" id="navbarNav">
-        {/* --- Main Nav Links --- */}
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0"> {/* Changed ms-auto to me-auto to align left */}
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
-            <router-link
-              to="/"
-              class="nav-link"
-              active-class="active"
-              exact-active-class="active"
-            >
-              Home
+            <router-link to="/" class="nav-link" active-class="active" exact-active-class="active">
+              Trang chủ
             </router-link>
           </li>
-          <li class="nav-item">
-            <router-link
-              to="/about"
-              class="nav-link"
-              active-class="active"
-            >
-              About
-            </router-link>
-          </li>
-          <li class="nav-item">
-            <router-link
-              to="/contact"
-              class="nav-link"
-              active-class="active"
-            >
-              Contact
-            </router-link>
-          </li>
+
+          <!-- Menu cho user thường -->
+          <template v-if="isLoggedIn && userRole === 'user'">
+            <li class="nav-item">
+              <router-link to="/register-distributor" class="nav-link" active-class="active">
+                Đăng ký làm nhà phân phối
+              </router-link>
+            </li>
+          </template>
+
+          <!-- Menu cho distributor -->
+          <template v-if="isLoggedIn && userRole === 'distributor'">
+            <li class="nav-item">
+              <router-link to="/distributor/channel" class="nav-link" active-class="active">
+                Kênh người bán
+              </router-link>
+            </li>
+            <li class="nav-item">
+              <router-link to="/distributor/products" class="nav-link" active-class="active">
+                Quản lý sản phẩm
+              </router-link>
+            </li>
+          </template>
+
+          <!-- Menu cho admin -->
+          <template v-if="isLoggedIn && userRole === 'admin'">
+            <li class="nav-item">
+              <router-link to="/admin/dashboard" class="nav-link" active-class="active">
+                Dashboard
+              </router-link>
+            </li>
+          </template>
         </ul>
 
-        {/* --- Search Form --- */}
-        <form class="d-flex mx-lg-2 my-2 my-lg-0" role="search" @submit.prevent="handleSearch">
-          <input
-             v-model="searchQuery"
-             class="form-control me-2"
-             type="search"
-             placeholder="Search..."
-             aria-label="Search">
-          <button class="btn btn-outline-success" type="submit">
-             <font-awesome-icon :icon="['fas', 'search']" />
-          </button>
-        </form>
-
-        {/* --- Right Aligned Items (Account) --- */}
-        <ul class="navbar-nav ms-auto mb-2 mb-lg-0"> {/* Separate UL with ms-auto */}
-          {/* Example Dropdown (Optional) */}
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <font-awesome-icon :icon="['fas', 'user']" /> Account
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-              <li><router-link class="dropdown-item" to="/profile">Profile</router-link></li>
-              <li><router-link class="dropdown-item" to="/settings">Settings</router-link></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="#" @click.prevent="logout">
-                  <font-awesome-icon :icon="['fas', 'sign-out-alt']" class="me-1"/> Logout
-                 </a>
-              </li>
-            </ul>
+        <!-- RIGHT: Cart icon + User Auth -->
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
+          <!-- Giỏ hàng -->
+          <li class="nav-item me-2">
+            <router-link to="/cart" class="nav-link position-relative" aria-label="Giỏ hàng">
+              <font-awesome-icon :icon="['fas', 'shopping-cart']" size="lg" />
+              <span
+                v-if="cartCount > 0"
+                class="cart-badge position-absolute translate-middle badge rounded-pill bg-success"
+                style="top: 6px; left: 22px; font-size: 0.83em;"
+              >{{ cartCount }}</span>
+            </router-link>
           </li>
+
+          <!-- Auth Buttons / User Dropdown -->
+          <template v-if="!isLoggedIn">
+            <li class="nav-item me-2">
+              <router-link to="/login" class="btn btn-outline-success me-2">
+                Đăng nhập
+              </router-link>
+            </li>
+            <li class="nav-item">
+              <router-link to="/register" class="btn btn-success">
+                Đăng ký
+              </router-link>
+            </li>
+          </template>
+          <template v-else>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown"
+                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <font-awesome-icon :icon="['fas', 'user']" /> {{ userName }}
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                <li>
+                  <router-link class="dropdown-item" to="/profile">Hồ sơ</router-link>
+                </li>
+                <li>
+                  <router-link class="dropdown-item" to="/settings">Cài đặt</router-link>
+                </li>
+                <li>
+                  <router-link class="dropdown-item" to="/orders">Đơn mua</router-link>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="logout">
+                    <font-awesome-icon :icon="['fas', 'sign-out-alt']" class="me-1"/> Đăng xuất
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </template>
         </ul>
-      </div> {/* End .navbar-collapse */}
-    </div> {/* End .container */}
+      </div>
+    </div>
   </nav>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-// import { useRouter } from 'vue-router'; // Uncomment if you navigate on search
+import { computed } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 
-// const router = useRouter(); // Uncomment if you navigate on search
-const searchQuery = ref('');
+const store = useStore();
+const router = useRouter();
+
+const isLoggedIn = computed(() => store.getters['auth/isAuthenticated']);
+const currentUser = computed(() => store.getters['auth/currentUser']);
+const userName = computed(() => currentUser.value?.name || 'Tài khoản');
+const userRole = computed(() => currentUser.value?.role || '');
+const cartCount = computed(() => store.getters['cart/cartItemsCount'] || 0);
 
 const logout = () => {
-  console.log("Logout action triggered");
-  // Add your actual logout logic here
-}
-
-const handleSearch = () => {
-  if (!searchQuery.value.trim()) return; // Prevent empty search
-  console.log("Searching for:", searchQuery.value);
-  // Add your search logic here
-  // Option 1: Navigate to a search results page
-  // router.push({ name: 'search', query: { q: searchQuery.value } });
-  // Option 2: Emit an event to parent component
-  // emit('search', searchQuery.value);
-  // Option 3: Call a method in a store (Vuex/Pinia)
-  // store.dispatch('performSearch', searchQuery.value);
-
-  // Clear search query after handling (optional)
-  // searchQuery.value = '';
-}
-
+  store.dispatch('auth/logout');
+  router.push('/');
+};
 </script>
 
 <style scoped>
-/* Ensure active class from router applies correctly */
 .nav-link.active {
-   font-weight: bold; /* Example */
+  font-weight: bold;
+  color: #33cc99 !important;
 }
-
-/* Minor adjustments for search form spacing if needed */
-/* .d-flex.mx-lg-2 { */
-   /* Add specific spacing rules */
-/* } */
-
+.btn {
+  min-width: 100px;
+}
+.cart-badge {
+  pointer-events: none;
+  z-index: 2;
+}
 </style>

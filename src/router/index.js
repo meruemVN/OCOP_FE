@@ -66,21 +66,20 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/shop/create',
-    name: 'CreateShop',
-    component: () => import('@/views/Shop/CreateShop.vue'),
-    meta: { requiresAuth: true }
+    path: '/distributor/channel',
+    component: () => import('@/views/distributor/Channel.vue'),
+    meta: { requiresAuth: true, role: 'distributor' }
   },
   {
-    path: '/shop/:id',
-    name: 'ShopDetail',
-    component: () => import('@/views/Shop/ShopDetail.vue')
+    path: '/distributor/products',
+    component: () => import('@/views/distributor/Products.vue'),
+    meta: { requiresAuth: true, role: 'distributor' }
   },
   {
     path: '/admin',
     name: 'AdminDashboard',
-    component: () => import('@/views/Admin/Dashboard.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true }
+    component: () => import('@/views/admin/Dashboard.vue'),
+    meta: { requiresAuth: true, role: 'admin' }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -98,20 +97,30 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  const isLoggedIn = store.getters['auth/isLoggedIn'];
+  const isLoggedIn = store.getters['auth/isLoggedIn'] || store.getters['auth/isAuthenticated'];
   const isAdmin = store.getters['auth/isAdmin'];
-  
-  // Check for routes that require authentication
+  const currentUser = store.getters['auth/currentUser'];
+
+  // Yêu cầu đăng nhập
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!isLoggedIn) {
       next({ name: 'Login', query: { redirect: to.fullPath } });
-    } else if (to.matched.some(record => record.meta.requiresAdmin) && !isAdmin) {
-      next({ name: 'Home' });
-    } else {
-      next();
+      return;
     }
-  } 
-  // Check for routes that require guests (non-authenticated users)
+    // Chặn admin
+    if (to.matched.some(record => record.meta.requiresAdmin) && !isAdmin) {
+      next({ name: 'Home' });
+      return;
+    }
+    // Chặn role khác
+    const requiredRole = to.meta.role;
+    if (requiredRole && (!currentUser || currentUser.role !== requiredRole)) {
+      next({ name: 'Home' });
+      return;
+    }
+    next();
+  }
+  // Yêu cầu khách (guest)
   else if (to.matched.some(record => record.meta.guest) && isLoggedIn) {
     next({ name: 'Home' });
   } else {

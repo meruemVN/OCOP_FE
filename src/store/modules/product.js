@@ -62,6 +62,16 @@ const actions = {
     }
   },
   
+  async addToCart({ dispatch }, { productId, quantity }) {
+    try {
+      // Gọi action addToCart của module cart
+      return await dispatch('cart/addToCart', { productId, quantity }, { root: true })
+    } catch (error) {
+      console.error('Error in product/addToCart:', error);
+      throw error; // Re-throw để component xử lý
+    }
+  },
+
   async getProductById({ commit, dispatch }, productId) {
     try {
       dispatch('setLoading', true, { root: true })

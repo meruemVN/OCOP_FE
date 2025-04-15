@@ -10,7 +10,7 @@ const getters = {
   currentUser: state => state.user,
   isAdmin: state => state.user?.role === 'admin',
   isDistributor: state => state.user?.role === 'distributor',
-  isSeller: state => state.user?.role === 'seller',
+  isLoggedIn: state => !!state.user
 }
 
 const mutations = {

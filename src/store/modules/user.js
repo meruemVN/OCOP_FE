@@ -9,7 +9,7 @@ const state = {
 const getters = {
   userProfile: state => state.userProfile,
   users: state => state.users,
-  distributorRequests: state => state.users.filter(user => user.distributorRequest && !user.distributorRequest.approved),
+  distributorRequests: state => state.distributorRequests,
   isAdmin: state => state.userProfile && state.userProfile.role === 'admin',
   isDistributor: state => state.userProfile && state.userProfile.role === 'distributor'
 }
@@ -32,26 +32,14 @@ const mutations = {
   },
   REMOVE_USER(state, userId) {
     state.users = state.users.filter(user => user._id !== userId)
+  },
+  SET_DISTRIBUTOR_REQUESTS(state, requests) {
+    state.distributorRequests = requests
   }
 }
 
 const actions = {
-  // Lấy thông tin hiện tại
-  async getCurrentUser({ commit, dispatch }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/users/me')
-      commit('SET_USER_PROFILE', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy thông tin người dùng hiện tại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-  
-  // Lấy profile người dùng
+  // Lấy profile người dùng (dùng route backend)
   async getUserProfile({ commit, dispatch }) {
     try {
       dispatch('setLoading', true, { root: true })
@@ -65,14 +53,14 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // Cập nhật profile người dùng
   async updateUserProfile({ commit, dispatch }, userData) {
     try {
       dispatch('setLoading', true, { root: true })
       const data = await api.put('/users/profile', userData)
       commit('SET_USER_PROFILE', data)
-      // Update auth user data if profile is updated
+      // Update auth user data nếu cần
       commit('auth/SET_USER', {
         _id: data._id,
         name: data.name,
@@ -88,7 +76,7 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // Đăng ký làm nhà phân phối
   async registerDistributor({ dispatch }, distributorData) {
     try {
@@ -103,9 +91,9 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // --- Admin actions ---
-  
+
   // Lấy danh sách người dùng
   async getUsers({ commit, dispatch }) {
     try {
@@ -120,7 +108,7 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // Lấy thông tin người dùng theo ID
   async getUserById({ dispatch }, userId) {
     try {
@@ -134,7 +122,7 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // Cập nhật thông tin người dùng (Admin)
   async updateUser({ commit, dispatch }, { userId, userData }) {
     try {
@@ -150,7 +138,7 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
+
   // Xóa người dùng
   async deleteUser({ commit, dispatch }, userId) {
     try {
@@ -165,18 +153,33 @@ const actions = {
       dispatch('setLoading', false, { root: true })
     }
   },
-  
-  // Phê duyệt nhà phân phối
-  async approveDistributor({ commit, dispatch }, userId) {
+
+  // Lấy danh sách yêu cầu nhà phân phối
+  async getDistributorRequests({ commit, dispatch }) {
     try {
       dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/users/${userId}/approve-distributor`)
-      // Update user in list
-      commit('UPDATE_USER', data)
-      dispatch('setSuccess', 'Phê duyệt nhà phân phối thành công', { root: true })
+      const data = await api.get('/users/getDistributor')
+      commit('SET_DISTRIBUTOR_REQUESTS', data)
       return data
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Phê duyệt nhà phân phối thất bại', { root: true })
+      dispatch('setError', error.response?.data?.message || 'Không thể lấy danh sách nhà phân phối', { root: true })
+      throw error
+    } finally {
+      dispatch('setLoading', false, { root: true })
+    }
+  },
+
+  // Phê duyệt/Từ chối nhà phân phối (bắt buộc truyền status)
+  async manageDistributorRequest({ commit, dispatch }, { userId, status }) {
+    try {
+      dispatch('setLoading', true, { root: true })
+      const data = await api.put(`/users/${userId}/approve-distributor`, { status })
+      // Cập nhật lại user trong danh sách
+      commit('UPDATE_USER', data.user || data)
+      dispatch('setSuccess', 'Cập nhật trạng thái nhà phân phối thành công', { root: true })
+      return data
+    } catch (error) {
+      dispatch('setError', error.response?.data?.message || 'Cập nhật trạng thái nhà phân phối thất bại', { root: true })
       throw error
     } finally {
       dispatch('setLoading', false, { root: true })

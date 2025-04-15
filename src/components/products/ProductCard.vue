@@ -32,13 +32,16 @@
   <script setup>
   import { defineProps, defineEmits } from 'vue';
   import { RouterLink } from 'vue-router';
-  // Assuming you have Font Awesome setup
+  import { useStore } from 'vuex'; 
+  
+  const store = useStore(); 
+  const placeholderImage = '/images/placeholder.png';
   
   const props = defineProps({
     product: {
       type: Object,
       required: true,
-      default: () => ({ // Provide default structure for safety
+      default: () => ({
           _id: 'default',
           name: 'No Name',
           price: 0,
@@ -50,22 +53,27 @@
   
   const emit = defineEmits(['add-to-cart']);
   
-  // const placeholderImage = '/images/placeholder.png'; // Path relative to public folder
-  
   const formatCurrency = (value) => {
     if (value == null) return 'N/A';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
   };
   
   const handleImageError = (event) => {
-    event.target.src = placeholderImage; // Fallback image on error
+    event.target.src = placeholderImage;
   };
   
   const addToCart = () => {
-      console.log('Adding to cart:', props.product._id);
-      // Emit event to parent or call Vuex action
-      // emit('add-to-cart', props.product);
-      // store.dispatch('cart/addItem', props.product);
+    // Thay vì chỉ emit, cũng gọi trực tiếp action Vuex
+    store.dispatch('cart/addToCart', {
+      productId: props.product._id,
+      quantity: 1
+    });
+    
+    // Vẫn giữ emit để component cha có thể xử lý nếu cần
+    emit('add-to-cart', {
+      productId: props.product._id,
+      quantity: 1
+    });
   }
   </script>
   

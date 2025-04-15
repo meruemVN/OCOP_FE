@@ -4,7 +4,7 @@ import user from './modules/user'
 import product from './modules/product'
 import cart from './modules/cart'
 import order from './modules/order'
-import shop from './modules/shop'
+import shop from './modules/distributor'
 
 export default createStore({
   state: {
@@ -21,6 +21,10 @@ export default createStore({
     CLEAR_ERROR(state) {
       state.error = null
     }
+  },
+  getters: {
+    authError: state => state.error,
+    authLoading: state => state.loading,
   },
   actions: {
     setError({ commit }, error) {
