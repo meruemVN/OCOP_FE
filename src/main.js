@@ -2,30 +2,33 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-
-// Import Bootstrap CSS
 import 'bootstrap/dist/css/bootstrap.min.css';
-// Import Bootstrap JS Bundle (if needed for other components)
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // Consider if you really need this
 
-// --- Correct Font Awesome imports ---
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faUser, faHome, faSignOutAlt, faShoppingCart } from '@fortawesome/free-solid-svg-icons';
-import '@fortawesome/fontawesome-free/css/all.css';
+// REMOVED: import '@fortawesome/fontawesome-free/css/all.css'; // Usually not needed with vue-fontawesome component
 
-// Add icons to the library
+import Toast, { POSITION } from 'vue-toastification'; // Import POSITION if needed for options
+import 'vue-toastification/dist/index.css';
+
+import './assets/css/footer.css';
+
 library.add(faUser, faHome, faSignOutAlt, faShoppingCart);
-
-// --- End Font Awesome imports ---
-
-// *** Import your custom Footer CSS ***
-import './assets/css/footer.css'; // Adjust path if needed
 
 const app = createApp(App);
 
 app.component('font-awesome-icon', FontAwesomeIcon);
 
+// Example Toast options
+const toastOptions = {
+    position: POSITION.TOP_RIGHT, // Or "top-right"
+    timeout: 3000, // Default 5000
+    // ... other options
+};
+
 app.use(store)
    .use(router)
+   .use(Toast, toastOptions) // Pass options here
    .mount('#app');

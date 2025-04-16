@@ -63,13 +63,11 @@
   };
   
   const addToCart = () => {
-    // Thay vì chỉ emit, cũng gọi trực tiếp action Vuex
-    store.dispatch('cart/addToCart', {
+    store.dispatch('cart/addOrUpdateCartItem', {
       productId: props.product._id,
       quantity: 1
     });
     
-    // Vẫn giữ emit để component cha có thể xử lý nếu cần
     emit('add-to-cart', {
       productId: props.product._id,
       quantity: 1

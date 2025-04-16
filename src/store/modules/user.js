@@ -1,191 +1,168 @@
-import api from '@/services/api'
+// store/modules/user.js
+import apiClient from '@/services/api'; // Đảm bảo đường dẫn đúng
 
 const state = {
-  userProfile: null,
-  users: [],
-  distributorRequests: []
-}
+  userProfile: null, // Profile của user đang đăng nhập (có thể lấy từ auth state)
+  users: [], // Danh sách user (cho admin)
+  loading: false,
+  error: null,
+};
 
 const getters = {
-  userProfile: state => state.userProfile,
-  users: state => state.users,
-  distributorRequests: state => state.distributorRequests,
-  isAdmin: state => state.userProfile && state.userProfile.role === 'admin',
-  isDistributor: state => state.userProfile && state.userProfile.role === 'distributor'
-}
+  userProfile: (state) => state.userProfile,
+  allUsers: (state) => state.users, // Đổi tên getter cho rõ ràng
+  isLoading: (state) => state.loading,
+  userError: (state) => state.error,
+  // Không cần getter isAdmin, isDistributor ở đây, dùng của module auth
+};
 
 const mutations = {
-  SET_USER_PROFILE(state, profile) {
-    state.userProfile = profile
+  USER_REQUEST: (state) => {
+    state.loading = true;
+    state.error = null;
   },
-  SET_USERS(state, users) {
-    state.users = users
+  SET_USER_PROFILE: (state, profile) => {
+    state.userProfile = profile; // profile là object hoặc null
+    state.loading = false;
+    state.error = null;
   },
-  ADD_USER(state, user) {
-    state.users.push(user)
+  SET_USERS: (state, users) => {
+    state.users = Array.isArray(users) ? users : [];
+    state.loading = false;
+    state.error = null;
   },
-  UPDATE_USER(state, updatedUser) {
-    const index = state.users.findIndex(user => user._id === updatedUser._id)
-    if (index !== -1) {
-      state.users.splice(index, 1, updatedUser)
+  // Thêm user mới vào danh sách (khi admin tạo)
+  // ADD_USER(state, user) { ... }, // Tạm bỏ qua nếu chưa cần
+  // Cập nhật user trong danh sách (khi admin sửa)
+  UPDATE_USER_IN_LIST: (state, updatedUser) => { // Đổi tên mutation
+    if (updatedUser && typeof updatedUser === 'object') {
+      const index = state.users.findIndex(u => u._id === updatedUser._id);
+      if (index !== -1) {
+        state.users.splice(index, 1, updatedUser);
+      }
     }
+    state.loading = false; // Có thể không cần set loading ở đây
   },
-  REMOVE_USER(state, userId) {
-    state.users = state.users.filter(user => user._id !== userId)
+   // Xóa user khỏi danh sách (khi admin xóa)
+  REMOVE_USER_FROM_LIST: (state, userId) => { // Đổi tên mutation
+    state.users = state.users.filter(u => u._id !== userId);
+    state.loading = false; // Có thể không cần set loading ở đây
   },
-  SET_DISTRIBUTOR_REQUESTS(state, requests) {
-    state.distributorRequests = requests
-  }
-}
+  USER_ERROR: (state, error) => {
+    state.loading = false;
+    state.error = error?.response?.data?.message || error?.message || 'Lỗi xử lý người dùng';
+  },
+   CLEAR_USER_PROFILE: (state) => { // Mutation để xóa profile khi logout
+     state.userProfile = null;
+   }
+};
 
 const actions = {
-  // Lấy profile người dùng (dùng route backend)
-  async getUserProfile({ commit, dispatch }) {
+  // Lấy profile của user hiện tại
+  async fetchUserProfile({ commit }) { // Đổi tên action
+    commit('USER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/users/profile')
-      commit('SET_USER_PROFILE', data)
-      return data
+      const response = await apiClient.get('/users/profile');
+      // Commit response.data (là object profile)
+      commit('SET_USER_PROFILE', response.data);
+      // Cũng cập nhật user trong auth state để đồng bộ
+      commit('auth/SET_AUTH_USER', response.data, { root: true });
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy thông tin người dùng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error("Lỗi fetchUserProfile:", error);
+      commit('USER_ERROR', error);
+      commit('SET_USER_PROFILE', null); // Set null khi lỗi
+      throw error;
     }
   },
 
-  // Cập nhật profile người dùng
+  // User tự cập nhật profile
   async updateUserProfile({ commit, dispatch }, userData) {
+    commit('USER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put('/users/profile', userData)
-      commit('SET_USER_PROFILE', data)
-      // Update auth user data nếu cần
-      commit('auth/SET_USER', {
-        _id: data._id,
-        name: data.name,
-        email: data.email,
-        role: data.role
-      }, { root: true })
-      dispatch('setSuccess', 'Cập nhật thông tin thành công', { root: true })
-      return data
+      const response = await apiClient.put('/users/profile', userData);
+      // Commit response.data (là object profile đã cập nhật)
+      commit('SET_USER_PROFILE', response.data);
+      // Cập nhật lại user trong auth state
+      commit('auth/SET_AUTH_USER', response.data, { root: true });
+      // dispatch('setSuccess', 'Cập nhật thành công', { root: true }); // Nếu có root action
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Cập nhật thông tin thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-
-  // Đăng ký làm nhà phân phối
-  async registerDistributor({ dispatch }, distributorData) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.post('/users/distributor', distributorData)
-      dispatch('setSuccess', 'Đăng ký làm nhà phân phối thành công! Vui lòng chờ phê duyệt', { root: true })
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Đăng ký làm nhà phân phối thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error("Lỗi updateUserProfile:", error);
+      commit('USER_ERROR', error);
+      // dispatch('setError', error.response?.data?.message || '...', { root: true });
+      throw error;
     }
   },
 
   // --- Admin actions ---
 
-  // Lấy danh sách người dùng
-  async getUsers({ commit, dispatch }) {
+  // Lấy danh sách tất cả user (cho admin)
+  async fetchUsers({ commit }) { // Đổi tên action
+    commit('USER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/users')
-      commit('SET_USERS', data)
-      return data
+      const response = await apiClient.get('/users'); // Endpoint lấy tất cả user
+      // Commit response.data (phải là mảng users)
+      commit('SET_USERS', response.data);
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy danh sách người dùng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error("Lỗi fetchUsers:", error);
+      commit('USER_ERROR', error);
+      commit('SET_USERS', []); // Set rỗng khi lỗi
+      throw error;
     }
   },
 
-  // Lấy thông tin người dùng theo ID
-  async getUserById({ dispatch }, userId) {
+  // Lấy chi tiết user theo ID (cho admin)
+  async fetchUserById({ commit }, userId) { // Đổi tên action
+     commit('USER_REQUEST');
+     try {
+       const response = await apiClient.get(`/users/${userId}`);
+       // Action này có thể không cần commit vào state chung, chỉ trả về data
+       commit('USER_REQUEST'); // Chỉ để reset loading/error
+       return response.data;
+     } catch (error) {
+       console.error("Lỗi fetchUserById:", error);
+       commit('USER_ERROR', error);
+       throw error;
+     }
+  },
+
+  // Admin cập nhật user
+  async updateUser({ commit }, { userId, userData }) {
+    commit('USER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get(`/users/${userId}`)
-      return data
+      const response = await apiClient.put(`/users/${userId}`, userData);
+      // Commit response.data để cập nhật user trong danh sách state.users
+      commit('UPDATE_USER_IN_LIST', response.data);
+      // dispatch('setSuccess', 'Cập nhật user thành công', { root: true });
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy thông tin người dùng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error("Lỗi updateUser (admin):", error);
+      commit('USER_ERROR', error);
+      // dispatch('setError', error.response?.data?.message || '...', { root: true });
+      throw error;
     }
   },
 
-  // Cập nhật thông tin người dùng (Admin)
-  async updateUser({ commit, dispatch }, { userId, userData }) {
+  // Admin xóa user
+  async deleteUser({ commit }, userId) {
+    commit('USER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/users/${userId}`, userData)
-      commit('UPDATE_USER', data)
-      dispatch('setSuccess', 'Cập nhật người dùng thành công', { root: true })
-      return data
+      await apiClient.delete(`/users/${userId}`);
+      // Commit userId để xóa khỏi danh sách state.users
+      commit('REMOVE_USER_FROM_LIST', userId);
+      // dispatch('setSuccess', 'Xóa user thành công', { root: true });
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Cập nhật người dùng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-
-  // Xóa người dùng
-  async deleteUser({ commit, dispatch }, userId) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      await api.delete(`/users/${userId}`)
-      commit('REMOVE_USER', userId)
-      dispatch('setSuccess', 'Xóa người dùng thành công', { root: true })
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Xóa người dùng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-
-  // Lấy danh sách yêu cầu nhà phân phối
-  async getDistributorRequests({ commit, dispatch }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/users/getDistributor')
-      commit('SET_DISTRIBUTOR_REQUESTS', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy danh sách nhà phân phối', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-
-  // Phê duyệt/Từ chối nhà phân phối (bắt buộc truyền status)
-  async manageDistributorRequest({ commit, dispatch }, { userId, status }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/users/${userId}/approve-distributor`, { status })
-      // Cập nhật lại user trong danh sách
-      commit('UPDATE_USER', data.user || data)
-      dispatch('setSuccess', 'Cập nhật trạng thái nhà phân phối thành công', { root: true })
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Cập nhật trạng thái nhà phân phối thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error("Lỗi deleteUser (admin):", error);
+      commit('USER_ERROR', error);
+      // dispatch('setError', error.response?.data?.message || '...', { root: true });
+      throw error;
     }
   }
-}
+
+  // Các action liên quan đến distributor request đã chuyển qua module distributor
+};
 
 export default {
   namespaced: true,
@@ -193,4 +170,4 @@ export default {
   getters,
   mutations,
   actions
-}
+};

@@ -141,9 +141,16 @@
     },
     computed: {
       ...mapGetters({
+        // Lấy trực tiếp từ getter, đã xử lý ở bước 2
         orders: 'order/myOrders'
       }),
       filteredOrders() {
+        // orders ở đây NÊN đã là một mảng (rỗng hoặc có dữ liệu)
+        // nhờ getter đã xử lý
+        if (!Array.isArray(this.orders)) {
+            console.warn('MyOrders computed: this.orders is not an array!', this.orders);
+            return []; // Trả về mảng rỗng nếu có gì đó bất thường
+        }
         if (this.activeTab === 'all') {
           return this.orders;
         }
@@ -152,7 +159,7 @@
     },
     methods: {
       ...mapActions({
-        fetchMyOrders: 'order/getMyOrders'
+        fetchMyOrders: 'order/fetchMyOrders'
       }),
       formatDate(dateString) {
         const date = new Date(dateString);
@@ -191,10 +198,11 @@
     async mounted() {
       try {
         this.loading = true;
-        await this.fetchMyOrders();
+        await this.fetchMyOrders(); // Gọi hàm đã map (tên là fetchMyOrders)
       } catch (error) {
         console.error('Error fetching orders:', error);
-        this.$toast.error('Không thể lấy danh sách đơn hàng');
+        // Không cần toast ở đây nếu action không throw lỗi
+        // this.$toast.error('Không thể lấy danh sách đơn hàng');
       } finally {
         this.loading = false;
       }

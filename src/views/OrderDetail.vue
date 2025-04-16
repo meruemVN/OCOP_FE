@@ -309,62 +309,40 @@
       async fetchOrderDetails() {
         try {
           this.loading = true;
-          const orderId = this.$route.params.id;
-          
-          // For demonstration, we're using mock data
-          // In a real app: this.order = await this.getOrderById(orderId);
-          
-          // Simulate API call
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Mock data
-          this.order = {
-            _id: orderId,
-            user: {
-              _id: 'user123',
-              name: 'Nguyễn Văn A'
-            },
-            orderItems: [
-              {
-                name: 'Mật ong rừng Tây Bắc',
-                quantity: 2,
-                image: 'https://via.placeholder.com/150',
-                price: 250000,
-                product: 'prod1'
-              },
-              {
-                name: 'Chè Shan tuyết Hà Giang',
-                quantity: 1,
-                image: 'https://via.placeholder.com/150',
-                price: 180000,
-                product: 'prod2'
-              }
-            ],
-            shippingAddress: {
-              fullName: 'Nguyễn Văn A',
-              address: '123 Đường Lê Lợi, Quận 1',
-              city: 'TP. Hồ Chí Minh',
-              country: 'Việt Nam',
-              phone: '0987654321'
-            },
-            paymentMethod: 'cod',
-            itemsPrice: 680000,
-            shippingPrice: 30000,
-            taxPrice: 68000,
-            totalPrice: 778000,
-            isPaid: true,
-            paidAt: '2025-04-01T10:30:00',
-            isDelivered: false,
-            status: 'processing',
-            createdAt: '2025-04-01T09:15:00'
-          };
+          const orderId = this.$route.params.id; // Lấy ID từ route
+
+          // Kiểm tra xem orderId có hợp lệ không
+          if (!orderId) {
+              console.error("Order ID not found in route params.");
+              this.loading = false;
+              // Có thể hiển thị thông báo lỗi hoặc redirect
+              this.$toast.error("ID đơn hàng không hợp lệ.");
+              this.$router.push('/orders'); // Ví dụ: Quay lại danh sách đơn hàng
+              return;
+          }
+
+          // Gọi action Vuex để lấy dữ liệu thật từ API
+          const fetchedOrder = await this.getOrderById(orderId); // Sử dụng action đã map
+
+          if (fetchedOrder) {
+              this.order = fetchedOrder; // Gán dữ liệu thật vào state của component
+          } else {
+              // Xử lý trường hợp action trả về null hoặc undefined (có thể do lỗi 404 hoặc lỗi khác)
+              console.warn(`Order with ID ${orderId} not found or error fetching.`);
+              this.$toast.error("Không tìm thấy thông tin đơn hàng.");
+              // Không gán this.order = null ở đây vì getter 'currentOrder' sẽ là null
+          }
+
         } catch (error) {
-          console.error('Error fetching order:', error);
+          // Lỗi đã được log trong action Vuex, có thể hiển thị toast ở đây nếu muốn
+          console.error('Error in fetchOrderDetails component method:', error);
+          this.$toast.error(error?.response?.data?.message || 'Lỗi khi tải chi tiết đơn hàng.');
+          // Không gán this.order = null để component có thể hiển thị thông báo lỗi "Không tìm thấy" dựa trên state.error
         } finally {
           this.loading = false;
         }
       },
-      
+            
       async markAsDelivered() {
         try {
           if (!confirm('Xác nhận đánh dấu đơn hàng này đã giao?')) return;

@@ -1,173 +1,131 @@
-import api from '@/services/api'
+// store/modules/order.js
+import apiClient from '@/services/api'; // Đảm bảo đường dẫn đúng
 
 const state = {
-  orders: [],
-  order: null,
-  myOrders: []
-}
+  myOrders: [], // Danh sách đơn hàng của user hiện tại
+  order: null,  // Đơn hàng chi tiết đang xem
+  loading: false,
+  error: null,
+};
 
 const getters = {
-  allOrders: state => state.orders,
-  orderDetail: state => state.order,
-  myOrders: state => state.myOrders
-}
+  myOrders: (state) => state.myOrders || [], // Luôn trả về mảng
+  currentOrder: (state) => state.order,
+  isLoading: (state) => state.loading,
+  orderError: (state) => state.error,
+};
 
 const mutations = {
-  SET_ORDERS(state, orders) {
-    state.orders = orders
+  ORDER_REQUEST: (state) => {
+    state.loading = true;
+    state.error = null;
   },
-  SET_ORDER(state, order) {
-    state.order = order
-  },
-  SET_MY_ORDERS(state, orders) {
-    state.myOrders = orders
-  },
-  ADD_ORDER(state, order) {
-    state.orders.push(order)
-    state.myOrders.push(order)
-  },
-  UPDATE_ORDER(state, updatedOrder) {
-    // Update in orders list
-    const ordersIndex = state.orders.findIndex(order => order._id === updatedOrder._id)
-    if (ordersIndex !== -1) {
-      state.orders.splice(ordersIndex, 1, updatedOrder)
+  ORDER_CREATE_SUCCESS: (state, createdOrder) => {
+    if (createdOrder && typeof createdOrder === 'object') {
+      state.myOrders.unshift(createdOrder); // Thêm vào đầu danh sách 'myOrders'
+      state.order = createdOrder;         // Set order hiện tại là đơn vừa tạo
     }
-    
-    // Update in my orders list
-    const myOrdersIndex = state.myOrders.findIndex(order => order._id === updatedOrder._id)
-    if (myOrdersIndex !== -1) {
-      state.myOrders.splice(myOrdersIndex, 1, updatedOrder)
+    state.loading = false;
+    state.error = null;
+  },
+  MY_ORDERS_SUCCESS: (state, orders) => {
+    if (Array.isArray(orders)) {
+      state.myOrders = orders; // Gán dữ liệu mới vào state
+    } else {
+      state.myOrders = []; // Reset về mảng rỗng nếu dữ liệu không đúng
+      console.error("MY_ORDERS_SUCCESS received non-array data:", orders);
     }
-    
-    // Update current order detail
-    if (state.order && state.order._id === updatedOrder._id) {
-      state.order = updatedOrder
+    state.loading = false;
+    state.error = null;
+  },
+  ORDER_DETAIL_SUCCESS: (state, order) => {
+    state.order = order; // Gán object đơn hàng hoặc null
+    state.loading = false;
+    state.error = null;
+  },
+  ORDER_UPDATE_SUCCESS: (state, updatedOrder) => {
+    if (updatedOrder && typeof updatedOrder === 'object') {
+      // Cập nhật trong danh sách myOrders
+      const index = state.myOrders.findIndex(o => o._id === updatedOrder._id);
+      if (index !== -1) {
+        state.myOrders.splice(index, 1, updatedOrder);
+      }
+      // Cập nhật order chi tiết nếu đang xem đúng đơn đó
+      if (state.order && state.order._id === updatedOrder._id) {
+        state.order = updatedOrder;
+      }
     }
-  }
-}
+    state.loading = false;
+    state.error = null;
+  },
+  ORDER_ERROR: (state, error) => {
+    state.loading = false;
+    state.error = error?.response?.data?.message || error?.message || 'Lỗi xử lý đơn hàng';
+  },
+  CLEAR_CURRENT_ORDER: (state) => {
+    state.order = null; // Xóa chi tiết đơn hàng hiện tại
+  },
+};
 
 const actions = {
-  async createOrder({ commit, dispatch }, orderData) {
+  // Tạo đơn hàng mới
+  async createOrder({ commit, dispatch }, orderPayload) {
+    commit('ORDER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.post('/orders', orderData)
-      commit('ADD_ORDER', data)
-      return data
+      const { shippingAddress, paymentMethod, note } = orderPayload;
+      const response = await apiClient.post('/orders', { shippingAddress, paymentMethod, note });
+      // Commit response.data (là object đơn hàng mới)
+      commit('ORDER_CREATE_SUCCESS', response.data);
+      dispatch('cart/resetCartState', null, { root: true }); // Gọi action reset giỏ hàng
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Tạo đơn hàng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error('Lỗi tạo đơn hàng:', error);
+      commit('ORDER_ERROR', error);
+      throw error;
     }
   },
-  
-  async getOrderById({ commit, dispatch }, orderId) {
+
+  // Lấy danh sách đơn hàng của user hiện tại
+  async fetchMyOrders({ commit }) {
+    commit('ORDER_REQUEST');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get(`/orders/${orderId}`)
-      commit('SET_ORDER', data)
-      return data
+      const response = await apiClient.get('/orders/myorders');
+      // Commit response.data (phải là mảng đơn hàng)
+      commit('MY_ORDERS_SUCCESS', response.data);
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy thông tin đơn hàng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error('Lỗi lấy danh sách đơn hàng:', error);
+      commit('ORDER_ERROR', error);
+      // Không throw lỗi để component không crash, chỉ hiển thị lỗi từ state
+      return []; // Trả về mảng rỗng khi lỗi
     }
   },
-  
-  async getMyOrders({ commit, dispatch }) {
+
+  // Lấy chi tiết một đơn hàng theo ID
+  async fetchOrderById({ commit }, orderId) {
+    commit('ORDER_REQUEST');
+    commit('CLEAR_CURRENT_ORDER');
     try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/orders/myorders')
-      commit('SET_MY_ORDERS', data)
-      return data
+      const response = await apiClient.get(`/orders/${orderId}`);
+      // Commit response.data (là object đơn hàng chi tiết)
+      commit('ORDER_DETAIL_SUCCESS', response.data);
+      return response.data;
     } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy danh sách đơn hàng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
+      console.error('Lỗi lấy chi tiết đơn hàng:', error);
+      commit('ORDER_ERROR', error);
+      throw error;
     }
   },
-  
-  async payOrder({ commit, dispatch }, { orderId, paymentResult }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/orders/${orderId}/pay`, paymentResult)
-      commit('UPDATE_ORDER', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Thanh toán đơn hàng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-  
-  // --- Admin/Distributor actions ---
-  
-  async getOrders({ commit, dispatch }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.get('/orders')
-      commit('SET_ORDERS', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Không thể lấy danh sách đơn hàng', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-  
-  async deliverOrder({ commit, dispatch }, orderId) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/orders/${orderId}/deliver`, {})
-      commit('UPDATE_ORDER', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Cập nhật trạng thái giao hàng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-  
-  async updateOrderStatus({ commit, dispatch }, { orderId, status }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/orders/${orderId}/status`, { status })
-      commit('UPDATE_ORDER', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Cập nhật trạng thái đơn hàng thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  },
-  
-  // --- Admin actions ---
-  
-  async assignOrderToDistributor({ commit, dispatch }, { orderId, distributorId }) {
-    try {
-      dispatch('setLoading', true, { root: true })
-      const data = await api.put(`/orders/${orderId}/assign`, { distributorId })
-      commit('UPDATE_ORDER', data)
-      return data
-    } catch (error) {
-      dispatch('setError', error.response?.data?.message || 'Gán đơn hàng cho nhà phân phối thất bại', { root: true })
-      throw error
-    } finally {
-      dispatch('setLoading', false, { root: true })
-    }
-  }
-}
+
+  // Các actions admin/update khác nếu cần (cũng commit response.data)
+  // async payOrder({ commit }, { orderId, paymentResult }) { ... commit('ORDER_UPDATE_SUCCESS', response.data); ... }
+  // async deliverOrder({ commit }, orderId) { ... commit('ORDER_UPDATE_SUCCESS', response.data); ... }
+};
 
 export default {
   namespaced: true,
   state,
   getters,
   mutations,
-  actions
-}
+  actions,
+};

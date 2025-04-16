@@ -124,11 +124,11 @@ import { useRouter } from 'vue-router';
 const store = useStore();
 const router = useRouter();
 
-const isLoggedIn = computed(() => store.getters['auth/isAuthenticated']);
+const isLoggedIn = computed(() => store.getters['auth/isLoggedIn']);
 const currentUser = computed(() => store.getters['auth/currentUser']);
 const userName = computed(() => currentUser.value?.name || 'Tài khoản');
 const userRole = computed(() => currentUser.value?.role || '');
-const cartCount = computed(() => store.getters['cart/cartItemsCount'] || 0);
+const cartCount = computed(() => store.getters['cart/cartItemCount'] || 0);
 
 const logout = () => {
   store.dispatch('auth/logout');
