@@ -1,439 +1,558 @@
-<!-- src/views/Admin/Dashboard.vue -->
 <template>
-    <div class="admin-dashboard">
-      <div class="container mx-auto px-4 py-8">
-        <h1 class="text-2xl font-semibold text-green-800 mb-6">Quản trị hệ thống</h1>
-        
-        <!-- Dashboard Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-              <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                <i class="fas fa-shopping-cart text-xl"></i>
+  <div class="admin-dashboard container-fluid py-4">
+    <h1 class="h3 mb-4 text-success fw-semibold">
+      <i class="fas fa-tachometer-alt me-2"></i>Bảng điều khiển Quản trị
+    </h1>
+
+    <!-- Dashboard Overview Cards -->
+    <div class="row g-4 mb-4">
+      <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="flex-shrink-0 me-3">
+                <span class="bg-success-subtle text-success p-3 rounded-circle d-inline-flex align-items-center justify-content-center">
+                  <i class="fas fa-receipt fa-lg"></i>
+                </span>
               </div>
-              <div>
-                <p class="text-gray-500 text-sm">Đơn hàng</p>
-                <p class="text-2xl font-semibold">{{ stats.orders }}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-              <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                <i class="fas fa-users text-xl"></i>
-              </div>
-              <div>
-                <p class="text-gray-500 text-sm">Người dùng</p>
-                <p class="text-2xl font-semibold">{{ stats.users }}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-              <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
-                <i class="fas fa-box text-xl"></i>
-              </div>
-              <div>
-                <p class="text-gray-500 text-sm">Sản phẩm</p>
-                <p class="text-2xl font-semibold">{{ stats.products }}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div class="bg-white rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-              <div class="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
-                <i class="fas fa-dollar-sign text-xl"></i>
-              </div>
-              <div>
-                <p class="text-gray-500 text-sm">Doanh thu</p>
-                <p class="text-2xl font-semibold">{{ formatPrice(stats.revenue) }}</p>
+              <div class="flex-grow-1">
+                <p class="text-muted mb-1 small">Tổng đơn hàng</p>
+                <h4 v-if="!loadingStats" class="mb-0 fw-bold">{{ stats.totalOrders || 0 }}</h4>
+                <div v-else class="placeholder-glow"><span class="placeholder col-4"></span></div>
               </div>
             </div>
           </div>
         </div>
-        
-        <!-- Tab Navigation -->
-        <div class="bg-white rounded-lg shadow-md mb-8">
-          <nav class="flex border-b">
-            <button 
-              v-for="tab in tabs" 
-              :key="tab.id"
-              @click="activeTab = tab.id"
-              class="px-6 py-3 text-center"
-              :class="{'text-green-600 border-b-2 border-green-600 font-medium': activeTab === tab.id}"
-            >
-              {{ tab.name }}
-            </button>
-          </nav>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="flex-shrink-0 me-3">
+                <span class="bg-primary-subtle text-primary p-3 rounded-circle d-inline-flex align-items-center justify-content-center">
+                  <i class="fas fa-users fa-lg"></i>
+                </span>
+              </div>
+              <div class="flex-grow-1">
+                <p class="text-muted mb-1 small">Người dùng</p>
+                <h4 v-if="!loadingStats" class="mb-0 fw-bold">{{ stats.totalUsers || 0 }}</h4>
+                <div v-else class="placeholder-glow"><span class="placeholder col-3"></span></div>
+              </div>
+            </div>
+          </div>
         </div>
-        
-        <!-- Tab Content -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-          <!-- Orders Tab -->
-          <div v-if="activeTab === 'orders'">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-lg font-medium">Đơn hàng gần đây</h2>
-              <button class="text-green-600 hover:text-green-700">
-                Xem tất cả
-              </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã đơn</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khách hàng</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày đặt</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tổng tiền</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="order in recentOrders" :key="order._id">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{{ order._id }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ order.user.name }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(order.createdAt) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatPrice(order.totalPrice) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span 
-                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                        :class="getStatusClass(order.status)"
-                      >
-                        {{ getStatusText(order.status) }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <a href="#" class="text-green-600 hover:text-green-900 mr-3">Chi tiết</a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="flex-shrink-0 me-3">
+                 <span class="bg-info-subtle text-info p-3 rounded-circle d-inline-flex align-items-center justify-content-center">
+                  <i class="fas fa-boxes fa-lg"></i>
+                </span>
+              </div>
+              <div class="flex-grow-1">
+                <p class="text-muted mb-1 small">Sản phẩm</p>
+                <h4 v-if="!loadingStats" class="mb-0 fw-bold">{{ stats.totalProducts || 0 }}</h4>
+                <div v-else class="placeholder-glow"><span class="placeholder col-4"></span></div>
+              </div>
             </div>
           </div>
-          
-          <!-- Products Tab -->
-          <div v-else-if="activeTab === 'products'">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-lg font-medium">Sản phẩm</h2>
-              <button class="bg-green-600 hover:bg-green-700 text-white py-1 px-4 rounded">
-                Thêm sản phẩm
-              </button>
-            </div>
-            
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sản phẩm</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Danh mục</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giá</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kho</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="product in products" :key="product._id">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0">
-                          <img class="h-10 w-10 rounded-full" :src="product.image || 'https://via.placeholder.com/150'" alt="">
-                        </div>
-                        <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">{{ product.name }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product.category }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatPrice(product.price) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ product.countInStock }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span 
-                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                        :class="product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
-                      >
-                        {{ product.countInStock > 0 ? 'Còn hàng' : 'Hết hàng' }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <a href="#" class="text-green-600 hover:text-green-900 mr-3">Sửa</a>
-                      <a href="#" class="text-red-600 hover:text-red-900">Xóa</a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          <!-- Users Tab -->
-          <div v-else-if="activeTab === 'users'">
-            <div class="flex justify-between items-center mb-4">
-              <h2 class="text-lg font-medium">Người dùng</h2>
-            </div>
-            
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Người dùng</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vai trò</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày đăng ký</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="user in users" :key="user._id">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0">
-                          <img class="h-10 w-10 rounded-full" src="https://via.placeholder.com/150" alt="">
-                        </div>
-                        <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.email }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                      <span 
-                        class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
-                        :class="getRoleClass(user.role)"
-                      >
-                        {{ getRoleText(user.role) }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(user.createdAt) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <a href="#" class="text-green-600 hover:text-green-900 mr-3">Chỉnh sửa</a>
-                      <a href="#" class="text-red-600 hover:text-red-900">Xóa</a>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm border-light h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center">
+              <div class="flex-shrink-0 me-3">
+                 <span class="bg-warning-subtle text-warning p-3 rounded-circle d-inline-flex align-items-center justify-content-center">
+                   <i class="fas fa-dollar-sign fa-lg"></i>
+                </span>
+              </div>
+              <div class="flex-grow-1">
+                <p class="text-muted mb-1 small">Tổng Doanh thu</p>
+                <h4 v-if="!loadingStats" class="mb-0 fw-bold">{{ formatCurrency(stats.totalRevenue) }}</h4>
+                 <div v-else class="placeholder-glow"><span class="placeholder col-6"></span></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </template>
-  
-  <script>
-  export default {
-    name: 'AdminDashboard',
-    data() {
-      return {
-        activeTab: 'orders',
-        tabs: [
-          { id: 'orders', name: 'Đơn hàng' },
-          { id: 'products', name: 'Sản phẩm' },
-          { id: 'users', name: 'Người dùng' }
-        ],
-        stats: {
-          orders: 156,
-          users: 532,
-          products: 237,
-          revenue: 78500000
-        },
-        recentOrders: [
-          { 
-            _id: '1001', 
-            user: { name: 'Nguyễn Văn A' }, 
-            createdAt: '2025-03-10T10:30:00', 
-            totalPrice: 850000, 
-            status: 'processing' 
-          },
-          { 
-            _id: '1002', 
-            user: { name: 'Trần Thị B' }, 
-            createdAt: '2025-03-09T14:20:00', 
-            totalPrice: 1250000, 
-            status: 'delivered' 
-          },
-          { 
-            _id: '1003', 
-            user: { name: 'Lê Văn C' }, 
-            createdAt: '2025-03-08T09:45:00', 
-            totalPrice: 550000, 
-            status: 'shipped' 
-          },
-          { 
-            _id: '1004', 
-            user: { name: 'Phạm Thị D' }, 
-            createdAt: '2025-03-07T16:15:00', 
-            totalPrice: 1750000, 
-            status: 'delivered' 
-          },
-          { 
-            _id: '1005', 
-            user: { name: 'Hoàng Văn E' }, 
-            createdAt: '2025-03-07T11:30:00', 
-            totalPrice: 425000, 
-            status: 'cancelled' 
-          }
-        ],
-        products: [
-          { 
-            _id: '1', 
-            name: 'Mật ong rừng Tây Bắc', 
-            category: 'Thực phẩm', 
-            price: 250000, 
-            countInStock: 15, 
-            image: 'https://via.placeholder.com/150' 
-          },
-          { 
-            _id: '2', 
-            name: 'Chè Shan tuyết Hà Giang', 
-            category: 'Đồ uống', 
-            price: 180000, 
-            countInStock: 8, 
-            image: 'https://via.placeholder.com/150' 
-          },
-          { 
-            _id: '3', 
-            name: 'Gạo nếp cẩm Điện Biên', 
-            category: 'Thực phẩm', 
-            price: 75000, 
-            countInStock: 25, 
-            image: 'https://via.placeholder.com/150' 
-          },
-          { 
-            _id: '4', 
-            name: 'Chổi đót làng Vẹt', 
-            category: 'Thủ công mỹ nghệ', 
-            price: 45000, 
-            countInStock: 0, 
-            image: 'https://via.placeholder.com/150' 
-          },
-          { 
-            _id: '5', 
-            name: 'Rượu cần Tây Nguyên', 
-            category: 'Đồ uống', 
-            price: 320000, 
-            countInStock: 12, 
-            image: 'https://via.placeholder.com/150' 
-          }
-        ],
-        users: [
-          { 
-            _id: '1', 
-            name: 'Nguyễn Văn Admin', 
-            email: 'admin@example.com', 
-            role: 'admin', 
-            createdAt: '2024-01-15T08:30:00' 
-          },
-          { 
-            _id: '2', 
-            name: 'Trần Thị Seller', 
-            email: 'seller@example.com', 
-            role: 'seller', 
-            createdAt: '2024-02-10T14:20:00' 
-          },
-          { 
-            _id: '3', 
-            name: 'Lê Văn Distributor', 
-            email: 'distributor@example.com', 
-            role: 'distributor', 
-            createdAt: '2024-02-20T10:15:00' 
-          },
-          { 
-            _id: '4', 
-            name: 'Phạm Thị User', 
-            email: 'user@example.com', 
-            role: 'user', 
-            createdAt: '2024-03-05T16:45:00' 
-          },
-          { 
-            _id: '5', 
-            name: 'Hoàng Văn New', 
-            email: 'newuser@example.com', 
-            role: 'user', 
-            createdAt: '2024-04-01T09:30:00' 
-          }
-        ]
-      };
-    },
-    methods: {
-      formatPrice(price) {
-        return new Intl.NumberFormat('vi-VN', {
-          style: 'currency',
-          currency: 'VND'
-        }).format(price);
-      },
-      
-      formatDate(dateString) {
-        const date = new Date(dateString);
-        return new Intl.DateTimeFormat('vi-VN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        }).format(date);
-      },
-      
-      getStatusClass(status) {
-        switch (status) {
-          case 'processing':
-            return 'bg-yellow-100 text-yellow-800';
-          case 'shipped':
-            return 'bg-blue-100 text-blue-800';
-          case 'delivered':
-            return 'bg-green-100 text-green-800';
-          case 'cancelled':
-            return 'bg-red-100 text-red-800';
-          default:
-            return 'bg-gray-100 text-gray-800';
-        }
-      },
-      
-      getStatusText(status) {
-        switch (status) {
-          case 'processing':
-            return 'Đang xử lý';
-          case 'shipped':
-            return 'Đang giao';
-          case 'delivered':
-            return 'Đã giao';
-          case 'cancelled':
-            return 'Đã hủy';
-          default:
-            return 'Không xác định';
-        }
-      },
-      
-      getRoleClass(role) {
-        switch (role) {
-          case 'admin':
-            return 'bg-red-100 text-red-800';
-          case 'seller':
-            return 'bg-blue-100 text-blue-800';
-          case 'distributor':
-            return 'bg-purple-100 text-purple-800';
-          case 'user':
-            return 'bg-green-100 text-green-800';
-          default:
-            return 'bg-gray-100 text-gray-800';
-        }
-      },
-      
-      getRoleText(role) {
-        switch (role) {
-          case 'admin':
-            return 'Quản trị viên';
-          case 'seller':
-            return 'Nhà bán hàng';
-          case 'distributor':
-            return 'Nhà phân phối';
-          case 'user':
-            return 'Người dùng';
-          default:
-            return 'Không xác định';
-        }
-      }
-    }
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-4" id="adminTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders-tab-pane" type="button" role="tab" aria-controls="orders-tab-pane" aria-selected="true">
+           <i class="fas fa-list-alt me-1"></i> Đơn hàng
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="products-tab" data-bs-toggle="tab" data-bs-target="#products-tab-pane" type="button" role="tab" aria-controls="products-tab-pane" aria-selected="false">
+            <i class="fas fa-box me-1"></i> Sản phẩm
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-tab-pane" type="button" role="tab" aria-controls="users-tab-pane" aria-selected="false">
+            <i class="fas fa-users-cog me-1"></i> Người dùng
+        </button>
+      </li>
+       <li class="nav-item" role="presentation">
+        <button class="nav-link" id="distributors-tab" data-bs-toggle="tab" data-bs-target="#distributors-tab-pane" type="button" role="tab" aria-controls="distributors-tab-pane" aria-selected="false">
+             <i class="fas fa-store me-1"></i> Yêu cầu NPP
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="adminTabContent">
+      <!-- Orders Tab Pane -->
+      <div class="tab-pane fade show active" id="orders-tab-pane" role="tabpanel" aria-labelledby="orders-tab" tabindex="0">
+         <div class="card shadow-sm border-light">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+               <h5 class="mb-0 text-dark">Đơn hàng gần đây</h5>
+               <router-link to="/admin/orders" class="btn btn-sm btn-outline-success">Xem tất cả</router-link>
+            </div>
+            <div class="card-body p-0">
+                <div v-if="loadingOrders" class="text-center p-5">
+                    <div class="spinner-border text-secondary" role="status"></div>
+                </div>
+                <div v-else-if="recentOrders.length === 0" class="text-center p-5 text-muted">
+                   Chưa có đơn hàng nào.
+                </div>
+                <div v-else class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                      <tr>
+                        <th scope="col" class="px-3">Mã đơn</th>
+                        <th scope="col">Khách hàng</th>
+                        <th scope="col" class="text-center">Ngày đặt</th>
+                        <th scope="col" class="text-end">Tổng tiền</th>
+                        <th scope="col" class="text-center">Trạng thái</th>
+                        <th scope="col" class="text-center">Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="order in recentOrders" :key="order._id">
+                        <td class="px-3 fw-medium">#{{ order._id.substring(order._id.length - 6).toUpperCase() }}</td>
+                        <td>{{ order.user?.name || 'N/A' }}</td>
+                        <td class="text-center small text-muted">{{ formatDate(order.createdAt) }}</td>
+                        <td class="text-end fw-semibold">{{ formatCurrency(order.totalPrice) }}</td>
+                        <td class="text-center">
+                          <span class="badge rounded-pill" :class="getStatusClass(order.status)">
+                            {{ getStatusText(order.status) }}
+                          </span>
+                        </td>
+                        <td class="text-center">
+                           <router-link :to="`/admin/order/${order._id}`" class="btn btn-sm btn-outline-primary py-0 px-1" title="Xem chi tiết">
+                               <i class="fas fa-eye"></i>
+                           </router-link>
+                           {/* Thêm nút khác nếu cần */}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+            </div>
+         </div>
+      </div>
+
+      <!-- Products Tab Pane -->
+      <div class="tab-pane fade" id="products-tab-pane" role="tabpanel" aria-labelledby="products-tab" tabindex="0">
+         <div class="card shadow-sm border-light">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+               <h5 class="mb-0 text-dark">Quản lý Sản phẩm</h5>
+                <router-link to="/admin/products/new" class="btn btn-sm btn-success">
+                   <i class="fas fa-plus me-1"></i> Thêm sản phẩm
+                </router-link>
+            </div>
+             <div class="card-body p-0">
+                <div v-if="loadingProducts" class="text-center p-5">
+                     <div class="spinner-border text-secondary" role="status"></div>
+                 </div>
+                 <div v-else-if="products.length === 0" class="text-center p-5 text-muted">
+                    Chưa có sản phẩm nào.
+                 </div>
+                 <div v-else class="table-responsive">
+                     <table class="table table-hover align-middle mb-0">
+                       <thead class="table-light small text-uppercase text-muted">
+                         <tr>
+                           <th scope="col" class="ps-3" style="width: 50%;">Sản phẩm</th>
+                           <th scope="col">Danh mục</th>
+                           <th scope="col" class="text-end">Giá</th>
+                           <th scope="col" class="text-center">Kho</th>
+                           <th scope="col" class="text-center">Trạng thái</th>
+                           <th scope="col" class="text-center">Hành động</th>
+                         </tr>
+                       </thead>
+                       <tbody>
+                         <tr v-for="product in products" :key="product._id">
+                           <td class="ps-3">
+                              <div class="d-flex align-items-center">
+                                <img class="rounded border me-2 flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;" :src="getProductImage(product)" :alt="product.name">
+                                <span class="fw-medium text-dark text-truncate" :title="product.name">{{ product.name }}</span>
+                              </div>
+                           </td>
+                           <td>{{ product.category || 'N/A' }}</td>
+                           <td class="text-end">{{ formatCurrency(product.price) }}</td>
+                           <td class="text-center">{{ product.countInStock }}</td>
+                           <td class="text-center">
+                             <span class="badge rounded-pill" :class="product.countInStock > 0 ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'">
+                               {{ product.countInStock > 0 ? 'Còn hàng' : 'Hết hàng' }}
+                             </span>
+                           </td>
+                           <td class="text-center">
+                              <div class="btn-group btn-group-sm">
+                                  <router-link :to="`/admin/product/${product._id}/edit`" class="btn btn-outline-primary" title="Sửa">
+                                     <i class="fas fa-edit"></i>
+                                  </router-link>
+                                  <button @click="confirmDeleteProduct(product)" class="btn btn-outline-danger" title="Xóa">
+                                      <i class="fas fa-trash"></i>
+                                  </button>
+                              </div>
+                           </td>
+                         </tr>
+                       </tbody>
+                     </table>
+                 </div>
+             </div>
+              <div class="card-footer bg-light text-center" v-if="products.length > 0">
+                  <router-link to="/admin/products" class="btn btn-sm btn-outline-secondary">Xem tất cả sản phẩm</router-link>
+              </div>
+         </div>
+      </div>
+
+      <!-- Users Tab Pane -->
+      <div class="tab-pane fade" id="users-tab-pane" role="tabpanel" aria-labelledby="users-tab" tabindex="0">
+         <div class="card shadow-sm border-light">
+             <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-dark">Quản lý Người dùng</h5>
+                 <router-link to="/admin/users/new" class="btn btn-sm btn-success">
+                    <i class="fas fa-user-plus me-1"></i> Thêm người dùng
+                 </router-link>
+             </div>
+              <div class="card-body p-0">
+                 <div v-if="loadingUsers" class="text-center p-5">
+                      <div class="spinner-border text-secondary" role="status"></div>
+                  </div>
+                  <div v-else-if="users.length === 0" class="text-center p-5 text-muted">
+                     Không có người dùng nào.
+                  </div>
+                  <div v-else class="table-responsive">
+                      <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase text-muted">
+                          <tr>
+                            <th scope="col" class="ps-3">Người dùng</th>
+                            <th scope="col">Email</th>
+                            <th scope="col" class="text-center">Vai trò</th>
+                            <th scope="col" class="text-center">Ngày đăng ký</th>
+                             <th scope="col" class="text-center">Trạng thái</th>
+                            <th scope="col" class="text-center">Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="user in users" :key="user._id">
+                            <td class="ps-3">
+                               <div class="d-flex align-items-center">
+                                  <div class="rounded-circle bg-secondary-subtle me-2 d-flex align-items-center justify-content-center" style="width:35px; height:35px;">
+                                      <i class="fas fa-user text-secondary"></i>
+                                  </div>
+                                  <span class="fw-medium text-dark">{{ user.name }}</span>
+                               </div>
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td class="text-center">
+                              <span class="badge rounded-pill" :class="getRoleClass(user.role)">
+                                {{ getRoleText(user.role) }}
+                              </span>
+                            </td>
+                            <td class="text-center small text-muted">{{ formatDate(user.createdAt) }}</td>
+                             <td class="text-center">
+                                 <span class="badge rounded-pill" :class="user.isActive ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis'">
+                                     {{ user.isActive ? 'Hoạt động' : 'Vô hiệu hóa' }}
+                                 </span>
+                             </td>
+                            <td class="text-center">
+                               <div class="btn-group btn-group-sm">
+                                   <router-link :to="`/admin/user/${user._id}/edit`" class="btn btn-outline-primary" title="Sửa">
+                                      <i class="fas fa-edit"></i>
+                                   </router-link>
+                                    <button @click="confirmDeleteUser(user)" class="btn btn-outline-danger" title="Xóa">
+                                       <i class="fas fa-trash"></i>
+                                   </button>
+                               </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                  </div>
+              </div>
+               <div class="card-footer bg-light text-center" v-if="users.length > 0">
+                   <router-link to="/admin/users" class="btn btn-sm btn-outline-secondary">Xem tất cả người dùng</router-link>
+               </div>
+          </div>
+      </div>
+
+       <!-- Distributors Tab Pane -->
+       <div class="tab-pane fade" id="distributors-tab-pane" role="tabpanel" aria-labelledby="distributors-tab" tabindex="0">
+          <div class="card shadow-sm border-light">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                 <h5 class="mb-0 text-dark">Yêu cầu Nhà Phân Phối</h5>
+                  {/* Filter button? */}
+              </div>
+               <div class="card-body p-0">
+                  <div v-if="loadingDistributorRequests" class="text-center p-5">
+                       <div class="spinner-border text-secondary" role="status"></div>
+                   </div>
+                   <div v-else-if="distributorRequests.length === 0" class="text-center p-5 text-muted">
+                      Không có yêu cầu nào.
+                   </div>
+                   <div v-else class="table-responsive">
+                       <table class="table table-hover align-middle mb-0">
+                         <thead class="table-light small text-uppercase text-muted">
+                           <tr>
+                             <th scope="col" class="ps-3">Người yêu cầu</th>
+                             <th scope="col">Công ty/MST</th>
+                             <th scope="col" class="text-center">Ngày yêu cầu</th>
+                             <th scope="col" class="text-center">Trạng thái</th>
+                             <th scope="col" class="text-center">Hành động</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           <tr v-for="request in distributorRequests" :key="request._id">
+                             <td class="ps-3">
+                                <span class="fw-medium text-dark">{{ request.name }}</span>
+                                <small class="d-block text-muted">{{ request.email }}</small>
+                             </td>
+                             <td>
+                                 <span class="d-block">{{ request.distributorInfo?.companyName || 'N/A' }}</span>
+                                 <small class="text-muted">MST: {{ request.distributorInfo?.taxId || 'N/A' }}</small>
+                             </td>
+                             <td class="text-center small text-muted">{{ formatDate(request.distributorInfo?.requestDate) }}</td>
+                             <td class="text-center">
+                                <span class="badge rounded-pill" :class="getRequestStatusClass(request.distributorInfo?.status)">
+                                  {{ getRequestStatusText(request.distributorInfo?.status) }}
+                                </span>
+                             </td>
+                             <td class="text-center">
+                                 <div class="btn-group btn-group-sm">
+                                      {/* Nút xem chi tiết yêu cầu nếu cần */}
+                                     {/* <button class="btn btn-outline-info" title="Chi tiết"> <i class="fas fa-info-circle"></i> </button> */}
+                                     <button v-if="request.distributorInfo?.status === 'pending'" @click="approveRequest(request._id)" class="btn btn-outline-success" title="Phê duyệt">
+                                         <i class="fas fa-check"></i>
+                                     </button>
+                                     <button v-if="request.distributorInfo?.status === 'pending'" @click="rejectRequest(request._id)" class="btn btn-outline-danger" title="Từ chối">
+                                          <i class="fas fa-times"></i>
+                                     </button>
+                                 </div>
+                             </td>
+                           </tr>
+                         </tbody>
+                       </table>
+                   </div>
+               </div>
+                <div class="card-footer bg-light text-center" v-if="distributorRequests.length > 0">
+                    {/* Link to full request list? */}
+                </div>
+           </div>
+       </div>
+
+    </div> <!-- End Tab Content -->
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router'; // Import nếu cần điều hướng
+// Import icons
+import { library } from '@fortawesome/fontawesome-svg-core';
+import { faTachometerAlt, faReceipt, faUsers, faBoxes, faDollarSign, faListAlt, faBox, faUsersCog, faStore, faEye, faEdit, faTrash, faCheck, faTimes, faInfoCircle, faUserPlus, faUser } from '@fortawesome/free-solid-svg-icons';
+
+library.add(faTachometerAlt, faReceipt, faUsers, faBoxes, faDollarSign, faListAlt, faBox, faUsersCog, faStore, faEye, faEdit, faTrash, faCheck, faTimes, faInfoCircle, faUserPlus, faUser);
+
+const store = useStore();
+const router = useRouter(); // Khởi tạo nếu cần
+
+// --- State ---
+const loadingStats = ref(true);
+const loadingOrders = ref(true);
+const loadingProducts = ref(true);
+const loadingUsers = ref(true);
+const loadingDistributorRequests = ref(true);
+
+// --- Computed Properties from Store ---
+// Giả định bạn sẽ tạo các getters và actions này trong store
+const stats = computed(() => store.getters['admin/dashboardStats'] || { totalOrders: 0, totalUsers: 0, totalProducts: 0, totalRevenue: 0 });
+const recentOrders = computed(() => store.getters['admin/recentOrders'] || []); // Lấy 5-10 đơn hàng mới nhất
+const products = computed(() => store.getters['admin/allProducts'] || []); // Lấy 1 trang sản phẩm
+const users = computed(() => store.getters['admin/allUsers'] || []); // Lấy 1 trang người dùng
+const distributorRequests = computed(() => store.getters['admin/pendingDistributorRequests'] || []); // Lấy các yêu cầu đang chờ
+
+// --- Methods ---
+const formatCurrency = (value) => {
+  if (value === undefined || value === null) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+};
+
+const getStatusClass = (status) => {
+  const classMap = {
+    'pending': 'bg-primary-subtle text-primary-emphasis',
+    'processing': 'bg-warning-subtle text-warning-emphasis',
+    'shipped': 'bg-info-subtle text-info-emphasis',
+    'delivered': 'bg-success-subtle text-success-emphasis',
+    'cancelled': 'bg-danger-subtle text-danger-emphasis'
   };
-  </script>
+  return classMap[status] || 'bg-secondary-subtle text-secondary-emphasis';
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    'pending': 'Chờ xử lý',
+    'processing': 'Đang xử lý',
+    'shipped': 'Đang giao',
+    'delivered': 'Đã giao',
+    'cancelled': 'Đã hủy'
+  };
+  return statusMap[status] || 'Không rõ';
+};
+
+const getRoleClass = (role) => {
+   const classMap = {
+      'admin': 'bg-danger-subtle text-danger-emphasis',
+      'distributor': 'bg-primary-subtle text-primary-emphasis',
+      'user': 'bg-success-subtle text-success-emphasis',
+   };
+   return classMap[role] || 'bg-secondary-subtle text-secondary-emphasis';
+};
+
+const getRoleText = (role) => {
+   const roleMap = {
+      'admin': 'Quản trị viên',
+      'distributor': 'Nhà phân phối',
+      'user': 'Người dùng',
+   };
+   return roleMap[role] || 'Không xác định';
+};
+
+const getRequestStatusClass = (status) => {
+    const classMap = {
+        'pending': 'bg-warning-subtle text-warning-emphasis',
+        'approved': 'bg-success-subtle text-success-emphasis',
+        'rejected': 'bg-danger-subtle text-danger-emphasis'
+    };
+    return classMap[status] || 'bg-secondary-subtle text-secondary-emphasis';
+}
+
+const getRequestStatusText = (status) => {
+     const statusMap = {
+        'pending': 'Chờ duyệt',
+        'approved': 'Đã duyệt',
+        'rejected': 'Đã từ chối'
+    };
+    return statusMap[status] || 'N/A';
+}
+
+const getProductImage = (product) => product.images?.[0] || '/images/placeholder.png';
+
+// --- Action Dispatchers (Ví dụ) ---
+const loadDashboardData = async () => {
+    loadingStats.value = true;
+    loadingOrders.value = true;
+    loadingProducts.value = true;
+    loadingUsers.value = true;
+    loadingDistributorRequests.value = true;
+
+    try {
+        // Gọi đồng thời nhiều actions để tải dữ liệu
+        await Promise.all([
+            store.dispatch('admin/fetchDashboardStats'),
+            store.dispatch('admin/fetchRecentOrders', { limit: 5 }), // Lấy 5 đơn mới nhất
+            store.dispatch('admin/fetchProducts', { page: 1, limit: 10 }), // Lấy trang 1, 10 sp
+            store.dispatch('admin/fetchUsers', { page: 1, limit: 10 }), // Lấy trang 1, 10 user
+            store.dispatch('admin/fetchDistributorRequests', { status: 'pending' }) // Lấy yêu cầu đang chờ
+        ]);
+    } catch (error) {
+        console.error("Error loading dashboard data:", error);
+        // Hiển thị toast lỗi chung
+        // toast.error("Không thể tải dữ liệu dashboard");
+    } finally {
+        // Cập nhật trạng thái loading tương ứng sau khi mỗi action hoàn thành
+        // (Getter trong store sẽ quản lý state loading/error chi tiết hơn)
+        // Tạm thời set tất cả về false
+        loadingStats.value = false;
+        loadingOrders.value = false;
+        loadingProducts.value = false;
+        loadingUsers.value = false;
+        loadingDistributorRequests.value = false;
+    }
+};
+
+const confirmDeleteProduct = (product) => {
+    if (confirm(`Xóa sản phẩm "${product.name}"?`)) {
+       // await store.dispatch('admin/deleteProduct', product._id);
+       alert('Chức năng xóa đang được phát triển');
+    }
+};
+const confirmDeleteUser = (user) => {
+     if (confirm(`Xóa người dùng "${user.name}"?`)) {
+       // await store.dispatch('admin/deleteUser', user._id);
+       alert('Chức năng xóa đang được phát triển');
+    }
+};
+const approveRequest = (userId) => {
+    if (confirm('Phê duyệt yêu cầu làm nhà phân phối cho người dùng này?')) {
+        // await store.dispatch('admin/manageDistributorRequest', { userId, status: 'approved' });
+         alert('Chức năng phê duyệt đang được phát triển');
+    }
+};
+const rejectRequest = (userId) => {
+     if (confirm('Từ chối yêu cầu làm nhà phân phối cho người dùng này?')) {
+        // await store.dispatch('admin/manageDistributorRequest', { userId, status: 'rejected' });
+         alert('Chức năng từ chối đang được phát triển');
+    }
+};
+
+
+// --- Lifecycle Hook ---
+onMounted(() => {
+    // Load dữ liệu khi component được mount
+    loadDashboardData();
+});
+
+</script>
+
+<style scoped>
+.nav-tabs .nav-link {
+    color: var(--bs-secondary-color);
+    border-bottom-width: 2px;
+    border-color: transparent transparent var(--bs-border-color) transparent;
+}
+.nav-tabs .nav-link.active {
+    color: var(--bs-success);
+    border-color: var(--bs-success) var(--bs-success) var(--bs-white) var(--bs-success);
+    font-weight: 600;
+}
+.table th {
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-size: 0.75em; /* Badge nhỏ hơn */
+    padding: 0.3em 0.6em;
+}
+/* Placeholder animation */
+.placeholder {
+    min-height: 1.2em;
+}
+</style>

@@ -4,7 +4,8 @@ import user from './modules/user'
 import product from './modules/product'
 import cart from './modules/cart'
 import order from './modules/order'
-import shop from './modules/distributor'
+import admin from './modules/admin'
+import distributor from './modules/distributor'
 
 export default createStore({
   state: {
@@ -39,10 +40,11 @@ export default createStore({
   },
   modules: {
     auth,
+    admin,
     user,
     product,
     cart,
     order,
-    shop
+    distributor
   }
 })
