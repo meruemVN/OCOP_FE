@@ -1,210 +1,219 @@
 <template>
-  <div class="checkout container mx-auto my-8 px-4 max-w-5xl">
-    <h1 class="text-3xl font-bold text-green-800 mb-6">Thanh toán</h1>
+  <div class="checkout container my-5">
+    <h1 class="text-center text-success mb-4 h2 fw-bold">
+        <i class="fas fa-credit-card me-2"></i> Thanh toán
+    </h1>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- Form thông tin giao hàng và thanh toán -->
-      <section class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-6 border-b pb-3">Thông tin giao hàng</h2>
-        <!-- Use @submit.prevent="placeOrder" -->
-        <form @submit.prevent="placeOrder" novalidate>
-          <!-- Thông tin cá nhân -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label class="block mb-1 font-medium text-gray-700" for="fullName">Họ và tên <span class="text-red-500">*</span></label>
-              <!-- Use v-model="shippingInfo.fullName" -->
-              <input id="fullName" v-model.trim="shippingInfo.fullName" type="text" required
-                class="input-field" placeholder="Nhập họ và tên" />
-              <!-- Use v-if="errors.fullName" -->
-              <p v-if="errors.fullName" class="text-red-600 text-sm mt-1">{{ errors.fullName }}</p>
-            </div>
-            <div>
-              <label class="block mb-1 font-medium text-gray-700" for="phone">Số điện thoại <span class="text-red-500">*</span></label>
-              <!-- Use v-model="shippingInfo.phone" -->
-              <input id="phone" v-model.trim="shippingInfo.phone" type="tel" required
-                class="input-field" placeholder="Nhập số điện thoại" />
-              <!-- Use v-if="errors.phone" -->
-              <p v-if="errors.phone" class="text-red-600 text-sm mt-1">{{ errors.phone }}</p>
-            </div>
+     <!-- Loading Cart State -->
+     <div v-if="isCartLoading && !initialLoadDone" class="text-center py-5">
+        <div class="spinner-border text-success" role="status"></div>
+         <p class="mt-2 text-muted">Đang tải thông tin giỏ hàng...</p>
+     </div>
+
+      <!-- Empty Cart State -->
+      <div v-else-if="(!cartItems || cartItems.length === 0) && initialLoadDone" class="card shadow-sm border-light p-5 text-center mx-auto" style="max-width: 550px;">
+          <div class="mb-4">
+             <i class="fas fa-shopping-cart text-light display-1"></i>
           </div>
+          <p class="text-muted mb-4 fs-5">Giỏ hàng trống, không thể thanh toán.</p>
+          <router-link to="/products" class="btn btn-success px-4 rounded-pill shadow-sm">
+            <i class="fas fa-arrow-left me-2"></i> Quay lại mua sắm
+          </router-link>
+      </div>
 
-          <!-- Email -->
-          <div class="mb-6">
-            <label class="block mb-1 font-medium text-gray-700" for="email">Email <span class="text-red-500">*</span></label>
-            <!-- Use v-model="shippingInfo.email" -->
-            <input id="email" v-model.trim="shippingInfo.email" type="email" required
-              class="input-field" placeholder="Nhập địa chỉ email" />
-            <!-- Use v-if="errors.email" -->
-            <p v-if="errors.email" class="text-red-600 text-sm mt-1">{{ errors.email }}</p>
-          </div>
+    <!-- Main Checkout Content -->
+    <div v-else class="row g-4">
+      <!-- Shipping and Payment Form -->
+      <section class="col-lg-7">
+         <div class="card shadow-sm border-light p-4">
+            <h2 class="h5 mb-4 text-dark fw-semibold border-bottom pb-3">
+                <i class="fas fa-map-marker-alt me-2 text-success"></i>Thông tin giao hàng
+            </h2>
+            <form @submit.prevent="placeOrder" class="needs-validation" novalidate ref="checkoutFormRef">
+                 <div v-if="formError" class="alert alert-danger small py-2">{{ formError }}</div>
 
-          <!-- Địa chỉ -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label class="block mb-1 font-medium text-gray-700" for="province">Tỉnh/Thành phố <span class="text-red-500">*</span></label>
-              <!-- Use v-model="shippingInfo.province" -->
-              <select id="province" v-model="shippingInfo.province" required class="input-field">
-                <option value="" disabled>Chọn tỉnh/thành phố</option>
-                <option value="hanoi">Hà Nội</option>
-                <option value="hochiminh">TP. Hồ Chí Minh</option>
-                <option value="danang">Đà Nẵng</option>
-                <option value="haiphong">Hải Phòng</option>
-                <option value="cantho">Cần Thơ</option>
-              </select>
-              <!-- Use v-if="errors.province" -->
-              <p v-if="errors.province" class="text-red-600 text-sm mt-1">{{ errors.province }}</p>
-            </div>
-            <div>
-              <label class="block mb-1 font-medium text-gray-700" for="district">Quận/Huyện <span class="text-red-500">*</span></label>
-              <!-- Use v-model="shippingInfo.district" -->
-              <select id="district" v-model="shippingInfo.district" required class="input-field" :disabled="!shippingInfo.province">
-                <option value="" disabled>Chọn quận/huyện</option>
-                <option value="district1" v-if="shippingInfo.province">Quận/Huyện 1</option>
-                <option value="district2" v-if="shippingInfo.province">Quận/Huyện 2</option>
-              </select>
-              <!-- Use v-if="errors.district" -->
-              <p v-if="errors.district" class="text-red-600 text-sm mt-1">{{ errors.district }}</p>
-            </div>
-            <div>
-              <label class="block mb-1 font-medium text-gray-700" for="ward">Phường/Xã <span class="text-red-500">*</span></label>
-              <!-- Use v-model="shippingInfo.ward" -->
-              <select id="ward" v-model="shippingInfo.ward" required class="input-field" :disabled="!shippingInfo.district">
-                <option value="" disabled>Chọn phường/xã</option>
-                <option value="ward1" v-if="shippingInfo.district">Phường/Xã 1</option>
-                <option value="ward2" v-if="shippingInfo.district">Phường/Xã 2</option>
-              </select>
-              <!-- Use v-if="errors.ward" -->
-              <p v-if="errors.ward" class="text-red-600 text-sm mt-1">{{ errors.ward }}</p>
-            </div>
-          </div>
+                 <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="fullName" class="form-label">Họ và tên <span class="text-danger">*</span></label>
+                        <input id="fullName" v-model.trim="shippingInfo.fullName" type="text" required class="form-control" placeholder="Nhập họ và tên" />
+                        <div class="invalid-feedback">{{ errors.fullName || 'Vui lòng nhập họ tên.' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phone" class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                        <input id="phone" v-model.trim="shippingInfo.phone" type="tel" required class="form-control" placeholder="Nhập số điện thoại" pattern="(84|0[3|5|7|8|9])+([0-9]{8})" />
+                        <div class="invalid-feedback">{{ errors.phone || 'Vui lòng nhập số điện thoại hợp lệ.' }}</div>
+                    </div>
+                 </div>
 
-          <div class="mb-6">
-            <label class="block mb-1 font-medium text-gray-700" for="address">Địa chỉ chi tiết <span class="text-red-500">*</span></label>
-            <!-- Use v-model="shippingInfo.address" -->
-            <input id="address" v-model.trim="shippingInfo.address" type="text" required class="input-field" placeholder="Số nhà, tên đường..." />
-            <!-- Use v-if="errors.address" -->
-            <p v-if="errors.address" class="text-red-600 text-sm mt-1">{{ errors.address }}</p>
-          </div>
+                 <div class="mb-3">
+                    <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                    <input id="email" v-model.trim="shippingInfo.email" type="email" required class="form-control" placeholder="Nhập địa chỉ email" />
+                     <div class="invalid-feedback">{{ errors.email || 'Vui lòng nhập email hợp lệ.' }}</div>
+                 </div>
 
-          <div class="mb-6">
-            <label class="block mb-1 font-medium text-gray-700" for="note">Ghi chú đơn hàng (tuỳ chọn)</label>
-            <!-- Use v-model="shippingInfo.note" -->
-            <textarea id="note" v-model.trim="shippingInfo.note" rows="3" class="input-field" placeholder="Ghi chú cho đơn hàng của bạn..."></textarea>
-          </div>
+                 <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                       <label for="province" class="form-label">Tỉnh/Thành phố <span class="text-danger">*</span></label>
+                       <select id="province" v-model="shippingInfo.province" required class="form-select">
+                          <option value="" disabled>Chọn...</option>
+                          <option value="Hà Nội">Hà Nội</option>
+                          <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                           <option value="Đà Nẵng">Đà Nẵng</option>
+                       </select>
+                       <div class="invalid-feedback">{{ errors.province || 'Vui lòng chọn.' }}</div>
+                    </div>
+                     <div class="col-md-4">
+                       <label for="district" class="form-label">Quận/Huyện <span class="text-danger">*</span></label>
+                       <select id="district" v-model="shippingInfo.district" required class="form-select" :disabled="!shippingInfo.province">
+                          <option value="" disabled>Chọn...</option>
+                           <option v-if="shippingInfo.province === 'Hà Nội'" value="Ba Đình">Ba Đình</option>
+                           <option v-if="shippingInfo.province === 'TP. Hồ Chí Minh'" value="Quận 1">Quận 1</option>
+                            <option v-if="shippingInfo.province === 'Đà Nẵng'" value="Hải Châu">Hải Châu</option>
+                       </select>
+                       <div class="invalid-feedback">{{ errors.district || 'Vui lòng chọn.' }}</div>
+                    </div>
+                     <div class="col-md-4">
+                       <label for="ward" class="form-label">Phường/Xã <span class="text-danger">*</span></label>
+                       <select id="ward" v-model="shippingInfo.ward" required class="form-select" :disabled="!shippingInfo.district">
+                           <option value="" disabled>Chọn...</option>
+                            <option v-if="shippingInfo.district === 'Quận 1'" value="Bến Nghé">Bến Nghé</option>
+                             <option v-if="shippingInfo.district === 'Ba Đình'" value="Điện Biên">Điện Biên</option>
+                       </select>
+                       <div class="invalid-feedback">{{ errors.ward || 'Vui lòng chọn.' }}</div>
+                    </div>
+                 </div>
+                  <div class="mb-3">
+                    <label for="address" class="form-label">Địa chỉ chi tiết <span class="text-danger">*</span></label>
+                    <input id="address" v-model.trim="shippingInfo.address" type="text" required class="form-control" placeholder="Số nhà, tên đường..." />
+                     <div class="invalid-feedback">{{ errors.address || 'Vui lòng nhập địa chỉ chi tiết.' }}</div>
+                 </div>
 
-          <!-- Phương thức vận chuyển -->
-          <div class="mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-3 border-b pb-2">Phương thức vận chuyển</h2>
-            <label class="flex items-center mb-2 cursor-pointer">
-              <!-- Use v-model="shippingMethod" -->
-              <input type="radio" value="standard" v-model="shippingMethod" class="mr-2" />
-              <span>Giao hàng tiêu chuẩn (3-5 ngày) - {{formatPrice(30000)}}đ</span>
-            </label>
-            <label class="flex items-center mb-2 cursor-pointer">
-              <!-- Use v-model="shippingMethod" -->
-              <input type="radio" value="fast" v-model="shippingMethod" class="mr-2" />
-              <span>Giao hàng nhanh (1-2 ngày) - {{formatPrice(50000)}}đ</span>
-            </label>
-          </div>
+                 <div class="mb-4">
+                    <label for="note" class="form-label">Ghi chú đơn hàng (tuỳ chọn)</label>
+                    <textarea id="note" v-model.trim="shippingInfo.note" rows="3" class="form-control" placeholder="Ví dụ: Giao hàng giờ hành chính..."></textarea>
+                 </div>
 
-          <!-- Phương thức thanh toán -->
-          <div>
-            <h2 class="text-xl font-semibold text-gray-800 mb-3 border-b pb-2">Phương thức thanh toán</h2>
-            <label class="flex items-center mb-2 cursor-pointer">
-              <!-- Use v-model="paymentMethod" -->
-              <input type="radio" value="cod" v-model="paymentMethod" class="mr-2" />
-              <span>Thanh toán khi nhận hàng (COD)</span>
-            </label>
-            <label class="flex items-center mb-2 cursor-pointer">
-              <!-- Use v-model="paymentMethod" -->
-              <input type="radio" value="banking" v-model="paymentMethod" class="mr-2" />
-              <span>Chuyển khoản ngân hàng</span>
-            </label>
-            <label class="flex items-center mb-2 cursor-pointer">
-              <!-- Use v-model="paymentMethod" -->
-              <input type="radio" value="momo" v-model="paymentMethod" class="mr-2" />
-              <span>Ví MoMo</span>
-            </label>
-            <label class="flex items-center mb-2 cursor-pointer">
-               <!-- Use v-model="paymentMethod" -->
-              <input type="radio" value="vnpay" v-model="paymentMethod" class="mr-2" />
-              <span>VNPay</span>
-            </label>
-          </div>
+                 <div class="mb-4">
+                    <h2 class="h5 mb-3 text-dark fw-semibold border-bottom pb-2">
+                       <i class="fas fa-shipping-fast me-2 text-success"></i>Phương thức vận chuyển
+                    </h2>
+                     <div class="form-check mb-2">
+                       <input class="form-check-input" type="radio" id="ship-standard" value="standard" v-model="shippingMethod">
+                       <label class="form-check-label" for="ship-standard">
+                          Giao hàng tiêu chuẩn (3-5 ngày) - <span class="fw-medium">{{formatPrice(30000)}}</span>
+                       </label>
+                     </div>
+                     <div class="form-check">
+                       <input class="form-check-input" type="radio" id="ship-fast" value="fast" v-model="shippingMethod">
+                       <label class="form-check-label" for="ship-fast">
+                          Giao hàng nhanh (1-2 ngày) - <span class="fw-medium">{{formatPrice(50000)}}</span>
+                       </label>
+                     </div>
+                 </div>
 
-          <button
-            type="submit"
-            :disabled="loading"
-            class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-md flex justify-center items-center disabled:opacity-50 transition"
-          >
-            <!-- Use v-if="loading" -->
-            <span v-if="loading" class="mr-2">
-              <div class="loader-sm"></div>
-            </span>
-            <span>Đặt hàng</span>
-          </button>
-        </form>
+                 <div>
+                     <h2 class="h5 mb-3 text-dark fw-semibold border-bottom pb-2">
+                        <i class="fas fa-money-check-alt me-2 text-success"></i>Phương thức thanh toán
+                     </h2>
+                     <div class="list-group list-group-flush">
+                        <label class="list-group-item list-group-item-action d-flex align-items-center">
+                           <input class="form-check-input me-3" type="radio" value="cod" v-model="paymentMethod">
+                           <i class="fas fa-truck fa-fw me-2 text-secondary"></i> Thanh toán khi nhận hàng (COD)
+                        </label>
+                         <label class="list-group-item list-group-item-action d-flex align-items-center">
+                           <input class="form-check-input me-3" type="radio" value="banking" v-model="paymentMethod">
+                            <i class="fas fa-university fa-fw me-2 text-secondary"></i> Chuyển khoản ngân hàng
+                         </label>
+                         <label class="list-group-item list-group-item-action d-flex align-items-center">
+                           <input class="form-check-input me-3" type="radio" value="momo" v-model="paymentMethod">
+                            <i class="fas fa-wallet fa-fw me-2 text-secondary"></i> Ví MoMo
+                         </label>
+                          <label class="list-group-item list-group-item-action d-flex align-items-center">
+                           <input class="form-check-input me-3" type="radio" value="vnpay" v-model="paymentMethod">
+                            <i class="fas fa-qrcode fa-fw me-2 text-secondary"></i> VNPay
+                         </label>
+                     </div>
+                 </div>
+
+                 <div class="d-grid mt-4 pt-3 border-top">
+                     <button
+                        type="submit"
+                        :disabled="isPlacingOrder || cartItems.length === 0"
+                        class="btn btn-success btn-lg rounded-pill shadow-sm"
+                     >
+                        <span v-if="isPlacingOrder" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <i v-else class="fas fa-check-circle me-2"></i>
+                        <span>{{ isPlacingOrder ? 'Đang xử lý...' : 'Hoàn tất Đặt hàng' }}</span>
+                     </button>
+                 </div>
+             </form>
+         </div>
       </section>
 
-      <!-- Tổng đơn hàng -->
-      <aside class="bg-white rounded-lg shadow-md p-6 sticky top-20">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-3">Đơn hàng của bạn</h2>
+      <!-- Order Summary -->
+      <aside class="col-lg-5">
+         <div class="card shadow-sm border-light sticky-top p-4" style="top: 20px;">
+            <h2 class="h5 text-center mb-4 text-success fw-semibold">
+                <i class="fas fa-file-invoice-dollar me-2"></i>Đơn hàng của bạn
+            </h2>
 
-        <!-- Use v-if="cartItems.length === 0" -->
-        <div v-if="cartItems.length === 0" class="text-center text-gray-500">
-          Giỏ hàng trống.
-        </div>
-
-        <!-- Use v-else -->
-        <div v-else class="space-y-4 max-h-72 overflow-y-auto">
-          <!-- Use v-for="item in cartItems" -->
-          <div v-for="item in cartItems" :key="item.product._id" class="flex items-center space-x-4">
-            <img :src="(item.product.images && item.product.images.length > 0 ? item.product.images[0] : '') || '/default.jpg'" alt="" class="w-14 h-14 object-cover rounded-md" />
-            <div class="flex-1">
-              <div class="font-medium text-gray-800">{{ item.product.name }}</div>
-               <!-- Use formatPrice(item.price) -->
-              <div class="text-sm text-gray-600">{{ item.quantity }} x {{ formatPrice(item.price) }}đ</div>
+             <div v-if="!cartItems || cartItems.length === 0" class="text-center text-muted py-4">
+              (Giỏ hàng trống)
             </div>
-             <!-- Use formatPrice(item.price * item.quantity) -->
-            <div class="font-semibold text-gray-900">{{ formatPrice(item.price * item.quantity) }}đ</div>
-          </div>
-        </div>
+            <div v-else class="mb-3 pb-2 border-bottom" style="max-height: 250px; overflow-y: auto;">
+                <div v-for="item in cartItems" :key="item.product._id" class="d-flex align-items-center py-2">
+                  <img :src="getProductImage(item.product)" :alt="item.product.name" @error="onImageError" class="rounded me-3 flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover; background-color: #f8f9fa;">
+                  <div class="flex-grow-1">
+                     <div class="fw-medium text-dark small text-truncate product-name-link">{{ item.product.name }}</div>
+                     <div class="text-muted small">SL: {{ item.quantity }} x {{ formatPrice(item.price || item.product.price) }}</div>
+                  </div>
+                  <div class="fw-semibold small ps-2">{{ formatPrice((item.price || item.product.price) * item.quantity) }}</div>
+                </div>
+            </div>
 
-        <div class="border-t border-gray-300 pt-4 mt-4 space-y-3">
-          <div class="flex justify-between text-gray-600">
-            <span>Tạm tính</span>
-            <!-- Use formatPrice(subtotal) -->
-            <span>{{ formatPrice(subtotal) }}đ</span>
-          </div>
-          <div class="flex justify-between text-gray-600">
-            <span>Phí vận chuyển</span>
-             <!-- Use formatPrice(shippingFee) -->
-            <span>{{ formatPrice(shippingFee) }}đ</span>
-          </div>
-          <div class="flex justify-between font-semibold text-lg pt-2 border-t border-gray-300">
-            <span>Tổng cộng</span>
-             <!-- Use formatPrice(total) -->
-            <span>{{ formatPrice(total) }}đ</span>
-          </div>
-        </div>
+            <div class="pt-2">
+              <div class="d-flex justify-content-between text-muted mb-1">
+                <span>Tạm tính:</span>
+                <span>{{ formatPrice(subtotal) }}</span>
+              </div>
+              <div class="d-flex justify-content-between text-muted mb-2">
+                <span>Phí vận chuyển:</span>
+                <span>{{ formatPrice(shippingFee) }}</span>
+              </div>
+              <div class="d-flex justify-content-between fw-bold fs-5 pt-2 border-top">
+                <span>Tổng cộng:</span>
+                <span class="text-success">{{ formatPrice(total) }}</span>
+              </div>
+            </div>
+         </div>
       </aside>
     </div>
   </div>
 </template>
 
-<script setup> // Use <script setup> for Composition API
-import { ref, reactive, computed } from 'vue';
+<script setup>
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import { useToast } from 'vue-toastification'; // Import useToast
+import { useToast } from 'vue-toastification';
+// Import icons
+import { library } from '@fortawesome/fontawesome-svg-core';
+import { faCreditCard, faMapMarkerAlt, faShippingFast, faMoneyCheckAlt, faTruck, faUniversity, faWallet, faQrcode, faCheckCircle, faArrowLeft, faShoppingCart, faFileInvoiceDollar } from '@fortawesome/free-solid-svg-icons';
+
+library.add(faCreditCard, faMapMarkerAlt, faShippingFast, faMoneyCheckAlt, faTruck, faUniversity, faWallet, faQrcode, faCheckCircle, faArrowLeft, faShoppingCart, faFileInvoiceDollar);
 
 const store = useStore();
 const router = useRouter();
-const toast = useToast(); // Get the toast instance
+const toast = useToast();
 
-// --- State ---
-const loading = ref(false);
-const shippingInfo = reactive({ // Use reactive for objects
+// --- Refs & Reactive State ---
+const isPlacingOrder = ref(false);
+const formSubmitted = ref(false); // Chỉ dùng để trigger validation UI của Bootstrap
+const checkoutFormRef = ref(null); // Ref cho form để reset validation
+const initialLoadDone = ref(false); // Cờ kiểm tra đã load cart lần đầu chưa
+const placeholderImg = '/images/placeholder.png';
+
+const shippingInfo = reactive({
   fullName: '',
   phone: '',
   email: '',
@@ -214,154 +223,160 @@ const shippingInfo = reactive({ // Use reactive for objects
   address: '',
   note: ''
 });
-const shippingMethod = ref('standard'); // Use ref for primitives
-const paymentMethod = ref('cod');      // Use ref for primitives
-const errors = reactive({}); // Use reactive for the errors object
+const shippingMethod = ref('standard');
+const paymentMethod = ref('cod');
+const errors = reactive({}); // Lưu trữ lỗi validation từ hàm validateForm
 
 // --- Computed Properties ---
-// Access getters via store.getters
-const cartItems = computed(() => store.getters['cart/cartItems']);
-const cartTotalPrice = computed(() => store.getters['cart/cartTotalPrice']);
+const isCartLoading = computed(() => store.getters['cart/isLoading']);
+const cartItems = computed(() => (initialLoadDone.value && store.getters['cart/cartItems']) ? store.getters['cart/cartItems'] : []);
+const cartTotalPrice = computed(() => (initialLoadDone.value && store.getters['cart/cartTotalPrice']) ? store.getters['cart/cartTotalPrice'] : 0);
+const currentUser = computed(() => store.getters['auth/currentUser']);
+const formError = computed(() => store.getters['order/orderError']); 
 
-const subtotal = computed(() => cartTotalPrice.value || 0);
-
+const subtotal = computed(() => Number(cartTotalPrice.value) || 0);
 const shippingFee = computed(() => {
-  return shippingMethod.value === 'fast' ? 50000 : 30000;
+   if (subtotal.value === 0) return 0;
+   // Bạn có thể lấy phí ship từ API hoặc tính toán phức tạp hơn ở đây
+   return shippingMethod.value === 'fast' ? 50000 : 30000;
 });
-
-const total = computed(() => {
-  // Ensure values are numbers before adding
-  const sub = Number(subtotal.value) || 0;
-  const fee = Number(shippingFee.value) || 0;
-  return sub + fee;
-});
+const total = computed(() => subtotal.value + shippingFee.value);
 
 
 // --- Methods ---
 const formatPrice = (value) => {
-  if (value === null || value === undefined) return '0';
-  return new Intl.NumberFormat('vi-VN').format(value);
+  if (value === null || value === undefined) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
+const getProductImage = (product) => product?.images?.[0] || placeholderImg;
+const onImageError = (event) => { event.target.src = placeholderImg; };
+
+// Hàm validate tùy chỉnh (có thể mở rộng)
 const validateForm = () => {
-  // Clear previous errors
-  Object.keys(errors).forEach(key => delete errors[key]);
-
-  if (!shippingInfo.fullName) {
-    errors.fullName = 'Họ và tên là bắt buộc';
+  Object.keys(errors).forEach(key => delete errors[key]); // Clear lỗi cũ
+  let isValid = true;
+  // Sử dụng validation của HTML5 trước, chỉ thêm custom logic nếu cần
+  // Ví dụ: Kiểm tra định dạng SĐT chặt chẽ hơn
+  if (shippingInfo.phone && !/^(84|0[3|5|7|8|9])([0-9]{8})$/.test(shippingInfo.phone)) {
+     errors.phone = 'Số điện thoại không đúng định dạng Việt Nam.';
+     isValid = false;
   }
-  if (!shippingInfo.phone) {
-    errors.phone = 'Số điện thoại là bắt buộc';
-  } else if (!/(84|0[3|5|7|8|9])+([0-9]{8})\b/.test(shippingInfo.phone)) {
-    errors.phone = 'Số điện thoại không hợp lệ';
-  }
-  if (!shippingInfo.email) {
-    errors.email = 'Email là bắt buộc';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingInfo.email)) {
-    errors.email = 'Email không hợp lệ';
-  }
-  if (!shippingInfo.province) {
-    errors.province = 'Tỉnh/Thành phố là bắt buộc';
-  }
-  if (!shippingInfo.district) {
-    errors.district = 'Quận/Huyện là bắt buộc';
-  }
-  if (!shippingInfo.ward) {
-    errors.ward = 'Phường/Xã là bắt buộc';
-  }
-  if (!shippingInfo.address) {
-    errors.address = 'Địa chỉ chi tiết là bắt buộc';
-  }
-
-  return Object.keys(errors).length === 0;
+   // Thêm các kiểm tra khác nếu cần
+  return isValid;
 };
 
-const placeOrder = async () => {
-  if (!validateForm()) {
-    toast.error('Vui lòng điền đầy đủ thông tin hợp lệ'); // Use toast directly
+// Hàm xử lý đặt hàng
+const placeOrder = async (event) => {
+  formSubmitted.value = true; // Đánh dấu đã submit
+  const form = checkoutFormRef.value; // Lấy form element
+
+  // Kiểm tra validation tổng hợp (cả HTML5 và custom)
+  if (!form.checkValidity() || !validateForm()) {
+    event.preventDefault();
+    event.stopPropagation();
+    form.classList.add('was-validated'); // Trigger Bootstrap styles
+    // Cuộn đến trường lỗi đầu tiên (nếu cần)
+     const firstError = Object.keys(errors)[0];
+     if (firstError) {
+         document.getElementById(firstError)?.focus();
+     } else {
+          // Tìm input invalid đầu tiên của HTML5
+          form.querySelector(':invalid')?.focus();
+     }
+    toast.error('Vui lòng kiểm tra lại thông tin đã nhập.');
     return;
   }
-  // Use .value for computed properties inside script setup
+   form.classList.add('was-validated'); // Hiển thị validation nếu pass
+
   if (cartItems.value.length === 0) {
-    toast.error('Giỏ hàng của bạn đang trống'); // Use toast directly
+    toast.error('Giỏ hàng của bạn đang trống');
     return;
   }
-  loading.value = true; // Use .value for refs
+
+  isPlacingOrder.value = true;
   try {
-    // Map items - access computed value with .value
-    const orderItems = cartItems.value.map(item => ({
-        product: item.product._id,
-        name: item.product.name,
-        price: item.price,
-        quantity: item.quantity,
-        // Ensure images array exists and has elements
-        image: (item.product.images && item.product.images.length > 0 ? item.product.images[0] : '') || '',
-        // Removed variant as it wasn't in the original data structure example
-        // variant: item.variant || null
-      }));
-
-
-    // Use the reactive shippingInfo directly
-    const shippingAddress = { ...shippingInfo };
-
-    const orderData = {
-      orderItems,
-      shippingAddress,
-      paymentMethod: paymentMethod.value, // Use .value for refs
-      shippingMethod: shippingMethod.value, // Use .value for refs
-      shippingPrice: shippingFee.value,   // Use .value for computed
-      itemsPrice: subtotal.value,         // Use .value for computed
-      totalPrice: total.value,            // Use .value for computed
-      note: shippingInfo.note || ''
+    const orderPayload = {
+        shippingAddress: { ...shippingInfo },
+        paymentMethod: paymentMethod.value,
+        note: shippingInfo.note || ''
+        // Backend sẽ tự lấy cart items và tính giá
     };
 
-    // Dispatch actions via store.dispatch
-    const createdOrder = await store.dispatch('order/createOrder', orderData);
-    await store.dispatch('cart/clearCart'); // Make sure this action exists and works
+    const createdOrder = await store.dispatch('order/createOrder', orderPayload);
+    // Action 'order/createOrder' đã gọi reset cart
 
-    toast.success('Đặt hàng thành công!'); // Use toast directly
-
-    // Use router for navigation
-    router.push(`/order/${createdOrder._id}`);
+    toast.success('Đặt hàng thành công!');
+    router.push(`/order/${createdOrder._id}`); // Đi đến trang chi tiết đơn hàng
 
   } catch (error) {
-    console.error("Checkout Error:", error); // Log the full error for debugging
-    const message =
-      (error.response && error.response.data && error.response.data.message) ||
-      error.message ||
-      'Đặt hàng thất bại. Vui lòng thử lại.';
-
-    toast.error(message); // Use toast directly
+    console.error("Checkout Error:", error);
+    // Reset validation state khi có lỗi từ server
+    form.classList.remove('was-validated');
+    formSubmitted.value = false;
+    const message = store.getters['order/orderError'] || 'Đặt hàng thất bại.'; // Lấy lỗi từ store
+    toast.error(message);
   } finally {
-    loading.value = false; // Use .value for refs
+    isPlacingOrder.value = false;
   }
 };
+
+// --- Lifecycle Hook ---
+onMounted(async () => {
+   // Điền sẵn thông tin từ user profile khi component mount
+   if (currentUser.value) {
+       shippingInfo.fullName = currentUser.value.name || '';
+       shippingInfo.email = currentUser.value.email || '';
+       shippingInfo.phone = currentUser.value.phone || '';
+       // Điền địa chỉ mặc định nếu có
+       if (currentUser.value.address) {
+           shippingInfo.address = currentUser.value.address.street || ''; // Giả sử schema user có address.street
+           shippingInfo.ward = currentUser.value.address.ward || '';
+           shippingInfo.district = currentUser.value.address.district || '';
+           shippingInfo.province = currentUser.value.address.city || currentUser.value.address.province || ''; // Ưu tiên city hoặc province
+       }
+   }
+    // Đảm bảo giỏ hàng đã được tải (có thể gọi lại hoặc chờ App.vue)
+    // Nếu App.vue đã gọi initializeCart, chỉ cần chờ loading xong
+    if (!store.getters['cart/theCart'] && store.getters['auth/isLoggedIn']) {
+         await store.dispatch('cart/initializeCart'); // Gọi lại nếu cần
+    }
+    initialLoadDone.value = true; // Đánh dấu đã qua giai đoạn khởi tạo
+});
 
 </script>
 
 <style scoped>
-.input-field {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  outline: none;
-  transition: border-color 0.2s;
+/* Kế thừa hoặc ghi đè CSS nếu cần */
+.product-name-link {
+    font-size: 0.9em;
+     display: -webkit-box;
+     -webkit-line-clamp: 1; /* Chỉ hiển thị 1 dòng trong tóm tắt */
+     -webkit-box-orient: vertical;
+     overflow: hidden;
+     text-overflow: ellipsis;
 }
-.input-field:focus {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+@media (min-width: 992px) {
+  .sticky-top {
+    top: 80px; /* Điều chỉnh dựa trên chiều cao Navbar */
+  }
 }
-.loader-sm {
-  border: 2px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 2px solid #22c55e;
-  width: 16px;
-  height: 16px;
-  animation: spin 1s linear infinite;
+/* CSS cho Bootstrap validation */
+.needs-validation .form-control:invalid,
+.needs-validation .form-select:invalid {
+    border-color: var(--bs-form-invalid-border-color);
 }
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.was-validated .form-control:invalid:focus,
+.was-validated .form-select:invalid:focus {
+   box-shadow: 0 0 0 0.25rem rgba(var(--bs-danger-rgb), 0.25);
+}
+/* Bỏ viền đỏ khi chưa submit */
+.form-control:not(._invalid),
+.form-select:not(._invalid) {
+  border-color: var(--bs-border-color);
+  box-shadow: none;
+}
+.list-group-item-action {
+    cursor: pointer; /* Thêm con trỏ cho payment methods */
 }
 </style>

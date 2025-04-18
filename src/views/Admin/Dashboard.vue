@@ -298,7 +298,6 @@
           <div class="card shadow-sm border-light">
               <div class="card-header bg-light d-flex justify-content-between align-items-center">
                  <h5 class="mb-0 text-dark">Yêu cầu Nhà Phân Phối</h5>
-                  {/* Filter button? */}
               </div>
                <div class="card-body p-0">
                   <div v-if="loadingDistributorRequests" class="text-center p-5">
@@ -336,8 +335,7 @@
                              </td>
                              <td class="text-center">
                                  <div class="btn-group btn-group-sm">
-                                      {/* Nút xem chi tiết yêu cầu nếu cần */}
-                                     {/* <button class="btn btn-outline-info" title="Chi tiết"> <i class="fas fa-info-circle"></i> </button> */}
+                                      <button class="btn btn-outline-info" title="Chi tiết"> <i class="fas fa-info-circle"></i> </button> 
                                      <button v-if="request.distributorInfo?.status === 'pending'" @click="approveRequest(request._id)" class="btn btn-outline-success" title="Phê duyệt">
                                          <i class="fas fa-check"></i>
                                      </button>
@@ -352,7 +350,6 @@
                    </div>
                </div>
                 <div class="card-footer bg-light text-center" v-if="distributorRequests.length > 0">
-                    {/* Link to full request list? */}
                 </div>
            </div>
        </div>
@@ -362,9 +359,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, reactive } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router'; // Import nếu cần điều hướng
+import { useToast } from 'vue-toastification';
 // Import icons
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faTachometerAlt, faReceipt, faUsers, faBoxes, faDollarSign, faListAlt, faBox, faUsersCog, faStore, faEye, faEdit, faTrash, faCheck, faTimes, faInfoCircle, faUserPlus, faUser } from '@fortawesome/free-solid-svg-icons';
@@ -373,6 +371,7 @@ library.add(faTachometerAlt, faReceipt, faUsers, faBoxes, faDollarSign, faListAl
 
 const store = useStore();
 const router = useRouter(); // Khởi tạo nếu cần
+const toast = useToast();
 
 // --- State ---
 const loadingStats = ref(true);
@@ -380,6 +379,7 @@ const loadingOrders = ref(true);
 const loadingProducts = ref(true);
 const loadingUsers = ref(true);
 const loadingDistributorRequests = ref(true);
+const processingRequests = reactive({});
 
 // --- Computed Properties from Store ---
 // Giả định bạn sẽ tạo các getters và actions này trong store
@@ -387,7 +387,11 @@ const stats = computed(() => store.getters['admin/dashboardStats'] || { totalOrd
 const recentOrders = computed(() => store.getters['admin/recentOrders'] || []); // Lấy 5-10 đơn hàng mới nhất
 const products = computed(() => store.getters['admin/allProducts'] || []); // Lấy 1 trang sản phẩm
 const users = computed(() => store.getters['admin/allUsers'] || []); // Lấy 1 trang người dùng
-const distributorRequests = computed(() => store.getters['admin/pendingDistributorRequests'] || []); // Lấy các yêu cầu đang chờ
+const distributorRequests = computed(() => {
+    const requests = store.getters['admin/distributorRequests'] || [];
+    console.log('[FINAL CHECK] Computed distributorRequests value:', JSON.stringify(requests)); // Log giá trị cuối cùng
+    return requests;
+});
 
 // --- Methods ---
 const formatCurrency = (value) => {
@@ -473,10 +477,10 @@ const loadDashboardData = async () => {
         // Gọi đồng thời nhiều actions để tải dữ liệu
         await Promise.all([
             store.dispatch('admin/fetchDashboardStats'),
-            store.dispatch('admin/fetchRecentOrders', { limit: 5 }), // Lấy 5 đơn mới nhất
-            store.dispatch('admin/fetchProducts', { page: 1, limit: 10 }), // Lấy trang 1, 10 sp
-            store.dispatch('admin/fetchUsers', { page: 1, limit: 10 }), // Lấy trang 1, 10 user
-            store.dispatch('admin/fetchDistributorRequests', { status: 'pending' }) // Lấy yêu cầu đang chờ
+            store.dispatch('admin/fetchOrders', { limit: 5, page: 1 }), // << SỬA LẠI TÊN VÀ THAM SỐ
+            store.dispatch('admin/fetchProducts', { page: 1, limit: 10 }),
+            store.dispatch('admin/fetchUsers', { page: 1, limit: 10 }),
+            store.dispatch('admin/fetchDistributorRequests', 'pending')
         ]);
     } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -506,17 +510,36 @@ const confirmDeleteUser = (user) => {
        alert('Chức năng xóa đang được phát triển');
     }
 };
-const approveRequest = (userId) => {
-    if (confirm('Phê duyệt yêu cầu làm nhà phân phối cho người dùng này?')) {
-        // await store.dispatch('admin/manageDistributorRequest', { userId, status: 'approved' });
-         alert('Chức năng phê duyệt đang được phát triển');
+const approveRequest = async (userId) => {
+  if (processingRequests[userId]) return; // Ngăn click nhiều lần
+  if (confirm('Phê duyệt yêu cầu làm nhà phân phối cho người dùng này?')) {
+    processingRequests[userId] = true; // Bắt đầu loading cho user này
+    try {
+      const result = await store.dispatch('admin/manageDistributorRequest', { userId, status: 'approved' });
+      toast.success(result.message || 'Đã phê duyệt yêu cầu.');
+      // State Vuex sẽ tự cập nhật danh sách, component sẽ render lại
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi phê duyệt yêu cầu.');
+    } finally {
+      processingRequests[userId] = false; // Kết thúc loading
     }
+  }
 };
-const rejectRequest = (userId) => {
-     if (confirm('Từ chối yêu cầu làm nhà phân phối cho người dùng này?')) {
-        // await store.dispatch('admin/manageDistributorRequest', { userId, status: 'rejected' });
-         alert('Chức năng từ chối đang được phát triển');
+
+const rejectRequest = async (userId) => {
+  if (processingRequests[userId]) return;
+  if (confirm('Từ chối yêu cầu làm nhà phân phối cho người dùng này?')) {
+     processingRequests[userId] = true;
+    try {
+      const result = await store.dispatch('admin/manageDistributorRequest', { userId, status: 'rejected' });
+      toast.success(result.message || 'Đã từ chối yêu cầu.');
+      // State Vuex tự cập nhật
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi từ chối yêu cầu.');
+    } finally {
+       processingRequests[userId] = false;
     }
+  }
 };
 
 

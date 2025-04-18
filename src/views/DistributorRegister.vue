@@ -84,23 +84,30 @@
            </div>
 
 
-          <div class="mb-3">
+           <div class="mb-3">
             <label for="distributionArea" class="form-label fw-medium">Khu vực phân phối dự kiến <span class="text-danger">*</span></label>
             <select
               id="distributionArea"
-              v-model="formData.distributionArea" 
+              v-model="formData.distributionArea"
               class="form-select"
               required
             >
               <option value="" disabled>-- Chọn khu vực --</option>
-              <option value="Miền Bắc">Miền Bắc</option>
-              <option value="Miền Trung">Miền Trung</option>
-              <option value="Miền Nam">Miền Nam</option>
-              <option value="Toàn quốc">Toàn quốc</option>
-              <option value="Khu vực khác">Khu vực khác (ghi rõ)</option> <!-- Option khác -->
+              <!-- Lặp qua mảng provinces từ data() -->
+              <option v-for="province in provinces" :key="province" :value="province">
+                {{ province }}
+              </option>
             </select>
-             <div class="invalid-feedback">Vui lòng chọn khu vực phân phối.</div>
-             <!-- Có thể thêm input text nếu chọn "Khu vực khác" -->
+            <div class="invalid-feedback">Vui lòng chọn khu vực phân phối.</div>
+            <!-- Thêm input cho "Khu vực khác" nếu cần -->
+            <input
+                v-if="formData.distributionArea === 'Khu vực khác'"
+                type="text"
+                class="form-control mt-2"
+                placeholder="Vui lòng ghi rõ khu vực khác"
+                v-model="formData.otherDistributionArea" 
+                required 
+              >
           </div>
 
           <div class="mb-4">
@@ -140,42 +147,56 @@
 
 <script>
 import { mapActions, mapGetters } from 'vuex';
-// Import icons nếu cần
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faStore, faPaperPlane, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
 library.add(faStore, faPaperPlane, faInfoCircle);
 
+// Danh sách 63 tỉnh thành + Toàn quốc + Khác
+const ALL_PROVINCES_AND_OPTIONS = [
+  "Toàn quốc", // Thêm tùy chọn Toàn quốc lên đầu
+  "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh",
+  "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau",
+  "Cần Thơ", "Cao Bằng", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên",
+  "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội",
+  "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên",
+  "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lâm Đồng", "Lạng Sơn",
+  "Lào Cai", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận",
+  "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh",
+  "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên",
+  "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh",
+  "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái",
+  "Khu vực khác" // Thêm tùy chọn Khác ở cuối
+];
 
 export default {
   name: 'DistributorRegister',
   data() {
     return {
-      // Sử dụng state loading/error của module distributor
-      // loading: false, // Bỏ loading cục bộ
+      provinces: ALL_PROVINCES_AND_OPTIONS, // Sử dụng danh sách đầy đủ
       formData: {
-        companyName: '', // Đổi tên field cho khớp schema
-        taxId: '',       // Thêm field
+        companyName: '',
+        taxId: '',
         businessLicense: '',
-        distributionArea: '', // Đổi tên field
-        phone: '',       // Thêm field
-        address: '',     // Thêm field
-        description: ''  // Thêm field
+        // Thay vì chỉ là String, nếu bạn muốn cho phép chọn NHIỀU khu vực,
+        // bạn cần đổi kiểu dữ liệu này thành Array và dùng multiple select
+        // Nhưng theo schema và API hiện tại, nó là String, nên giữ nguyên là String
+        distributionArea: '', // Khởi tạo rỗng để placeholder "-- Chọn khu vực --" hiển thị
+        phone: '',
+        address: '',
+        description: ''
       }
     };
   },
   computed: {
     ...mapGetters({
-      // Lấy state loading/error từ module distributor
       formLoading: 'distributor/isLoading',
       formError: 'distributor/distributorError',
-      // Lấy thông tin user để có thể điền sẵn (nếu muốn)
       currentUser: 'auth/currentUser'
     })
   },
   methods: {
     ...mapActions({
-      // Map action đăng ký từ module distributor
       registerDistributorAction: 'distributor/registerDistributor'
     }),
 
@@ -187,57 +208,46 @@ export default {
         form.classList.add('was-validated');
         return;
       }
-      form.classList.add('was-validated'); // Hiển thị validation
+      form.classList.add('was-validated');
+
+      // Kiểm tra nếu chọn "Khu vực khác" thì cần xử lý thêm (ví dụ: yêu cầu nhập vào ô khác)
+      if (this.formData.distributionArea === 'Khu vực khác') {
+          // Bạn cần thêm một input field khác để người dùng nhập khu vực cụ thể
+          // và gán giá trị đó vào formData trước khi gửi đi, hoặc báo lỗi nếu chưa nhập.
+          alert('Vui lòng liên hệ để đăng ký khu vực khác.'); // Ví dụ đơn giản
+          return; // Ngăn submit
+      }
+
 
       try {
-        // Gọi action Vuex đã map
         const result = await this.registerDistributorAction(this.formData);
-
-        // Xử lý kết quả thành công
-        this.$toast.success(result.message || 'Đăng ký thành công! Chờ xét duyệt.'); // Hiển thị thông báo
-        // Chuyển hướng về trang profile hoặc trang thông báo
-        this.$router.push({ name: 'UserProfile' }); // Hoặc '/profile'
-
+        this.$toast.success(result.message || 'Đăng ký thành công! Chờ xét duyệt.');
+        this.$router.push({ name: 'UserProfile' });
       } catch (error) {
         console.error('Distributor registration error:', error);
-        // Lỗi đã được set trong state distributor/error, không cần alert
-        // Component cha hoặc toast toàn cục có thể hiển thị lỗi này
-         this.$toast.error(this.formError || 'Đăng ký thất bại. Vui lòng thử lại.');
+        this.$toast.error(this.formError || 'Đăng ký thất bại. Vui lòng thử lại.');
       }
-      // Không cần finally loading ở đây vì state loading của store sẽ tự quản lý
     }
   },
   mounted() {
-      // Có thể điền sẵn một số thông tin từ profile user nếu muốn
       if (this.currentUser) {
           this.formData.phone = this.currentUser.phone || '';
-          // Điền các trường khác nếu có trong currentUser và hợp lý
       }
   }
 };
 </script>
 
 <style scoped>
-/* Thêm CSS nếu cần, ví dụ: */
-.card {
-  border: none; /* Bỏ border mặc định của card */
-}
-.form-label.fw-medium {
-    font-weight: 500 !important; /* Đảm bảo fw-medium có tác dụng */
-}
+/* CSS giữ nguyên như trước */
+.card { border: none; }
+.form-label.fw-medium { font-weight: 500 !important; }
 .needs-validation input:invalid,
 .needs-validation select:invalid,
-.needs-validation textarea:invalid {
-    border-color: #dc3545; /* Màu đỏ cho input invalid của Bootstrap */
-}
+.needs-validation textarea:invalid { border-color: #dc3545; }
 .was-validated input:invalid,
 .was-validated select:invalid,
-.was-validated textarea:invalid {
-    border-color: #dc3545;
-}
+.was-validated textarea:invalid { border-color: #dc3545; }
 .was-validated input:invalid:focus,
 .was-validated select:invalid:focus,
-.was-validated textarea:invalid:focus {
-   box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25); /* Focus màu đỏ */
-}
+.was-validated textarea:invalid:focus { box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25); }
 </style>

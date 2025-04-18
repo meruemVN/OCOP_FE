@@ -112,17 +112,17 @@
                     <div class="row g-3 mb-3">
                          <div class="col-md-4">
                              <label for="productPrice" class="form-label">Giá (VNĐ) <span class="text-danger">*</span></label>
-                             <input type="number" id="productPrice" v-model.number="form.price" min="0" step="1000" class="form-control" required>
+                             <input type="number" id="productPrice" v-model="form.price" min="0" class="form-control" required>
                               <div class="invalid-feedback">Vui lòng nhập giá hợp lệ (>= 0).</div>
                          </div>
                          <div class="col-md-4">
                              <label for="productStock" class="form-label">Tồn kho <span class="text-danger">*</span></label>
-                             <input type="number" id="productStock" v-model.number="form.countInStock" min="0" class="form-control" required>
+                             <input type="number" id="productStock" v-model="form.countInStock" min="0" class="form-control" required>
                               <div class="invalid-feedback">Vui lòng nhập số lượng tồn kho (>= 0).</div>
                          </div>
                          <div class="col-md-4">
                              <label for="productSold" class="form-label">Đã bán</label>
-                             <input type="number" id="productSold" v-model.number="form.sold" min="0" class="form-control">
+                             <input type="number" id="productSold" v-model="form.sold" min="0" class="form-control">
                              <div class="invalid-feedback">Vui lòng nhập số lượng đã bán (>= 0).</div>
                          </div>
                     </div>
@@ -272,7 +272,14 @@ async function submitProductForm(event) {
                         .map(url => url.trim())
                         .filter(url => url); // Lọc bỏ link rỗng
 
-    const productData = { ...form.value, images: imagesArray };
+    const productData = {
+        ...form.value,
+        images: imagesArray,
+        // Đảm bảo các giá trị số là số, nếu không phải thì gán 0
+        price: Number(form.value.price) || 0,
+        countInStock: Number(form.value.countInStock) || 0,
+        sold: Number(form.value.sold) || 0,
+    };
 
     if (form.value._id) {
       // --- Cập nhật sản phẩm ---
