@@ -6,6 +6,7 @@ import cart from './modules/cart'
 import order from './modules/order'
 import admin from './modules/admin'
 import distributor from './modules/distributor'
+import recommendation from './modules/recommendation'
 
 export default createStore({
   state: {
@@ -45,6 +46,7 @@ export default createStore({
     product,
     cart,
     order,
-    distributor
+    distributor,
+    recommendation
   }
 })

@@ -427,7 +427,7 @@
                     </div>
                   </div>
                    <router-link
-                     to="/distributor-register"
+                     to="/register-distributor"
                      class="btn btn-success px-4 mt-3"
                    >
                       <i class="fas fa-store me-2"></i> Bắt đầu đăng ký
