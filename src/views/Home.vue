@@ -1,7 +1,15 @@
 <template>
   <div class="home-page container-fluid py-4 px-md-4">
-    <div class="row g-4">
+    <!-- START: BANNER MỚI THÊM -->
+    <header class="banner mb-4">
+      <h1 class="banner__title">OCOP – Đặc sản vùng miền</h1>
+      <p class="banner__subtitle">
+        Chất lượng chuẩn 3 sao trở lên – Hương vị thiên nhiên, văn hóa bản địa.
+      </p>
+    </header>
+    <!-- END: BANNER MỚI THÊM -->
 
+    <div class="row g-4">
       <!-- Sidebar Bộ lọc -->
       <nav class="col-12 col-lg-3">
         <div class="filter-sidebar card shadow-sm border-light sticky-lg-top" style="top: 20px;">
@@ -88,13 +96,13 @@
       <!-- Main Content Area -->
       <main class="col-12 col-lg-9">
 
-        <!-- Gợi ý cho bạn Section (ĐÃ CẬP NHẬT LOGIC HIỂN THỊ) -->
+        <!-- Gợi ý cho bạn Section -->
         <section class="mb-5 suggested-section">
           <h3 class="mb-3 fw-bold text-success">
              <i class="fas fa-lightbulb me-2 text-warning"></i>
-             {{ lastViewedProductIdFromStore ? 'Dành riêng cho bạn' : 'Sản phẩm nổi bật' }}
+             {{ suggestionSectionTitle }}
           </h3>
-           <div v-if="loadingSuggestedSection" class="text-center py-4">
+           <div v-if="loadingSuggestedSectionComputed" class="text-center py-4">
                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
                <p class="mt-2 text-muted">Đang tìm gợi ý phù hợp...</p>
            </div>
@@ -105,14 +113,13 @@
               <i class="fas fa-exclamation-circle me-1"></i> Lỗi khi tải gợi ý: {{ recommendationErrorFromStore }}
            </div>
           <div v-else class="row flex-nowrap overflow-auto pb-3 gx-3">
-            <!-- suggestedProductsToDisplay là computed property đã map dữ liệu -->
             <div v-for="product in suggestedProductsToDisplay" :key="'suggested-'+product._id" class="col-8 col-sm-6 col-md-4 col-lg-3">
               <product-card :product="product" @add-to-cart="handleAddToCart" />
             </div>
           </div>
         </section>
 
-        <!-- Danh sách sản phẩm chính (GIỮ NGUYÊN TEMPLATE CỦA BẠN) -->
+        <!-- Danh sách sản phẩm chính -->
         <section>
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-3">
                 <h3 class="mb-2 mb-sm-0 fw-bold text-success">
@@ -126,22 +133,22 @@
                 </div>
            </div>
 
-           <div v-if="loading" class="d-flex justify-content-center align-items-center py-5" style="min-height: 40vh;">
+           <div v-if="loadingMainProducts" class="d-flex justify-content-center align-items-center py-5" style="min-height: 40vh;">
              <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;"></div>
            </div>
-            <div v-else-if="products.length === 0" class="text-center py-5 card border-light shadow-sm">
+            <div v-else-if="mainProducts.length === 0" class="text-center py-5 card border-light shadow-sm">
                <div class="card-body">
                    <i class="fas fa-search fa-3x text-light mb-3"></i>
                    <p class="text-muted">Không tìm thấy sản phẩm nào phù hợp với lựa chọn của bạn.</p>
                </div>
             </div>
             <div v-else class="row row-cols-1 row-cols-sm-2 row-cols-md-2 row-cols-xl-3 g-4" id="productListSection">
-                <div class="col" v-for="product in products" :key="product._id">
+                <div class="col" v-for="product in mainProducts" :key="product._id">
                     <product-card :product="product" @add-to-cart="handleAddToCart" />
                 </div>
             </div>
 
-             <nav v-if="pagination.pages > 1 && !loading" aria-label="Product pagination" class="d-flex justify-content-center mt-5">
+             <nav v-if="pagination.pages > 1 && !loadingMainProducts" aria-label="Product pagination" class="d-flex justify-content-center mt-5">
                 <ul class="pagination">
                     <li class="page-item" :class="{ disabled: pagination.page === 1 }">
                         <a class="page-link" href="#" @click.prevent="changePage(pagination.page - 1)">«</a>
@@ -166,24 +173,23 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useToast } from 'vue-toastification';
 import ProductCard from '@/components/products/ProductCard.vue'; // Đảm bảo đường dẫn đúng
-// Import icons
 import { library } from '@fortawesome/fontawesome-svg-core';
-import { 
-    faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf, 
-    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch, 
-    faExclamationCircle, faStream // faStream đã được thêm ở ProductDetailView, thêm ở đây nếu cần
+import {
+    faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
+    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
+    faExclamationCircle, faStream
 } from '@fortawesome/free-solid-svg-icons';
 
 library.add(
-    faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf, 
-    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch, 
+    faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
+    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
     faExclamationCircle, faStream
 );
 
 const store = useStore();
 const toast = useToast();
 
-// --- Constants & State (GIỮ NGUYÊN TỪ CODE GỐC CỦA BẠN) ---
+// --- Constants ---
 const PROVINCES = [
    "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh",
   "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau",
@@ -197,97 +203,120 @@ const PROVINCES = [
   "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh",
   "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
 ];
-const CATEGORIES = ["Nông sản khô", "Thực phẩm chế biến", "Đồ uống", "Thảo dược", "Thủ công mỹ nghệ", "Đặc sản vùng miền", "Sản phẩm OCOP", "Khác"]; // Mở rộng danh mục
+const CATEGORIES = ["Nông sản khô", "Thực phẩm chế biến", "Đồ uống", "Thảo dược", "Thủ công mỹ nghệ", "Đặc sản vùng miền", "Sản phẩm OCOP", "Khác"];
+const LOCAL_STORAGE_SUGGESTION_PREF_KEY = 'userSawPersonalizedSuggestions';
+const LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER = 'lastViewedIdForSuggestionTrigger';
 
-const loading = ref(true); // Loading cho danh sách sản phẩm chính
-// loadingSuggested đã được thay bằng loadingSuggestedSection (computed)
-const products = ref([]);
-// suggestedProducts đã được thay bằng suggestedProductsToDisplay (computed)
-const defaultSuggestedProducts = ref([]); // Để lưu gợi ý mặc định (ví dụ: phổ biến)
-const loadingDefaultSuggested = ref(false); // State loading riêng cho default suggestions
+// --- State cho danh sách sản phẩm chính ---
+const loadingMainProducts = ref(true);
+const mainProducts = ref([]);
+const pagination = ref({ page: 1, pages: 1, count: 0 });
 
-const provinces = ref(PROVINCES);
-const categories = ref(CATEGORIES);
+// --- State cho bộ lọc ---
+const provinces = ref([...PROVINCES]); // Khởi tạo từ hằng số PROVINCES
+const categories = ref([...CATEGORIES]); // Khởi tạo từ hằng số CATEGORIES
 const selectedProvince = ref(null);
 const selectedCategory = ref(null);
 const filterPrice = ref({ min: null, max: null });
 const sortBy = ref('popular');
-const pagination = ref({ page: 1, pages: 1, count: 0 });
 const initialProvinceCount = 10;
 const showAllProvinces = ref(false);
 
-// --- Vuex Getters cho recommendation (THÊM VÀO) ---
+// --- State cho mục gợi ý ---
+const defaultSuggestedProducts = ref([]);
+const loadingDefaultSuggested = ref(false);
+
+// --- Getters từ Vuex Store (cho mục gợi ý) ---
 const lastViewedProductIdFromStore = computed(() => store.getters['recommendation/lastViewedProductId']);
 const relatedRecommendationsFromStore = computed(() => store.getters['recommendation/relatedRecommendations']);
 const loadingRecommendationsFromStore = computed(() => store.getters['recommendation/loadingRecommendations']);
 const recommendationErrorFromStore = computed(() => store.getters['recommendation/recommendationError']);
 const hasRelatedRecommendationsFromStore = computed(() => store.getters['recommendation/hasRelatedRecommendations']);
 
-// --- Computed Properties (GIỮ NGUYÊN VÀ THÊM MỚI) ---
+// --- Computed Properties ---
 const displayedProvinces = computed(() => {
+  if (!Array.isArray(provinces.value)) {
+      return [];
+  }
   return showAllProvinces.value ? provinces.value : provinces.value.slice(0, initialProvinceCount);
 });
 
-// Trạng thái loading tổng hợp cho section gợi ý (THÊM MỚI)
-const loadingSuggestedSection = computed(() => {
-    // Nếu đang tải gợi ý liên quan (từ Vuex), thì section này đang loading
-    if (loadingRecommendationsFromStore.value) {
-        return true;
-    }
-    // Nếu không có gợi ý liên quan và cũng không có lỗi, và đang tải gợi ý mặc định
-    if (!hasRelatedRecommendationsFromStore.value && !recommendationErrorFromStore.value && loadingDefaultSuggested.value) {
-        return true;
-    }
-    return false;
+const suggestionSectionTitle = computed(() => {
+  const hasSeenPersonalized = localStorage.getItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY) === 'true';
+  const triggerIdFromStorage = localStorage.getItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER);
+  const currentLastViewedId = lastViewedProductIdFromStore.value;
+
+  if (hasRelatedRecommendationsFromStore.value && Array.isArray(relatedRecommendationsFromStore.value) && relatedRecommendationsFromStore.value.length > 0) {
+    return 'Dành riêng cho bạn';
+  }
+  if (hasSeenPersonalized && currentLastViewedId &&
+      (triggerIdFromStorage === String(currentLastViewedId) || !triggerIdFromStorage)
+     ) {
+    return 'Dành riêng cho bạn';
+  }
+  return 'Sản phẩm nổi bật';
 });
 
-// Quyết định danh sách sản phẩm nào sẽ hiển thị trong "Gợi ý cho bạn" (THÊM MỚI)
+const loadingSuggestedSectionComputed = computed(() => {
+    if (suggestionSectionTitle.value === 'Dành riêng cho bạn') {
+        return loadingRecommendationsFromStore.value;
+    }
+    return loadingDefaultSuggested.value;
+});
+
 const suggestedProductsToDisplay = computed(() => {
-    if (hasRelatedRecommendationsFromStore.value && relatedRecommendationsFromStore.value.length > 0) {
-        // Ưu tiên hiển thị gợi ý liên quan nếu có
-        return relatedRecommendationsFromStore.value.map(p => ({
-            _id: String(p.product_id), // ProductCard thường dùng _id (string)
+    const relatedRecs = relatedRecommendationsFromStore.value;
+    const defaultRecs = defaultSuggestedProducts.value;
+
+    if (hasRelatedRecommendationsFromStore.value && Array.isArray(relatedRecs) && relatedRecs.length > 0) {
+        return relatedRecs.map(p => ({
+            _id: String(p.product_id),
             original_id: p.product_id,
             name: p.name,
-            images: p.image_url ? [p.image_url] : ['/images/placeholder-image.png'], // ProductCard có thể cần mảng images
+            images: p.image_url ? [p.image_url] : ['/images/placeholder-image.png'],
             price: p.price,
-            rating: p.ocop_rating, // Hoặc một trường rating khác từ sản phẩm gốc
-            numReviews: 0, // API gợi ý thường không có thông tin này
-            countInStock: 1, // Mặc định là còn hàng
-            // Thêm các trường khác mà ProductCard của bạn có thể cần
+            rating: p.ocop_rating,
+            numReviews: p.num_reviews || 0,
+            countInStock: p.count_in_stock || 1,
         }));
     }
-    // Nếu không có gợi ý liên quan, hiển thị gợi ý mặc định
-    return defaultSuggestedProducts.value;
+    if (Array.isArray(defaultRecs)) {
+        return defaultRecs.map(p => ({
+            _id: p._id,
+            original_id: p.original_id || p._id,
+            name: p.name,
+            images: p.images && p.images.length > 0 ? p.images : ['/images/placeholder-image.png'],
+            price: p.price,
+            rating: p.rating,
+            numReviews: p.numReviews,
+            countInStock: p.countInStock,
+        }));
+    }
+    return [];
 });
 
-
-const pageNumbers = computed(() => { // Giữ nguyên logic pageNumbers của bạn
+const pageNumbers = computed(() => {
     const currentPage = pagination.value.page;
     const totalPages = pagination.value.pages;
-    if (totalPages <= 1) return []; // Không hiển thị pagination nếu chỉ có 1 trang
-    const delta = 1; // Số trang hiển thị mỗi bên của trang hiện tại, bạn có thể dùng delta = 2 như trước
+    if (totalPages <= 1) return [];
+    const delta = 1;
     const range = [];
     const rangeWithDots = [];
     let l;
 
     range.push(1);
-
-    // Tính toán left và right range, đảm bảo không vượt quá giới hạn
     let left = Math.max(2, currentPage - delta);
     let right = Math.min(totalPages - 1, currentPage + delta);
 
     for (let i = left; i <= right; i++) {
         range.push(i);
     }
-    range.push(totalPages);
-    range.sort((a, b) => a - b); // Sắp xếp lại để đảm bảo thứ tự đúng
-
-    // Loại bỏ các số trùng lặp sau khi sort (nếu có)
+    if (totalPages > 1) range.push(totalPages);
+    range.sort((a, b) => a - b);
     const uniqueRange = [...new Set(range)];
 
     uniqueRange.forEach((i) => {
-        if (l !== undefined) { // Bắt đầu kiểm tra từ phần tử thứ 2
+        if (l !== undefined) {
             if (i - l === 2) {
                 rangeWithDots.push(l + 1);
             } else if (i - l > 1) {
@@ -301,9 +330,9 @@ const pageNumbers = computed(() => { // Giữ nguyên logic pageNumbers của b�
 });
 
 
-// --- Methods (GIỮ NGUYÊN VÀ THÊM MỚI) ---
-const fetchProducts = async (page = 1) => { // Giữ nguyên
-  loading.value = true;
+// --- Methods ---
+const fetchMainProducts = async (page = 1) => {
+  loadingMainProducts.value = true;
   try {
     const params = { pageNumber: page, pageSize: 12 };
     if (selectedProvince.value) params.province = selectedProvince.value;
@@ -313,103 +342,116 @@ const fetchProducts = async (page = 1) => { // Giữ nguyên
     if (sortBy.value) params.sortBy = sortBy.value;
 
     const result = await store.dispatch('product/searchProducts', params);
-    products.value = result?.products || [];
-    pagination.value = {
-      page: result?.page || 1,
-      pages: result?.pages || 1,
-      count: result?.count || 0
-    };
+
+    if (result && result.products) {
+        mainProducts.value = result.products;
+        pagination.value = {
+          page: result.page || 1,
+          pages: result.pages || 1,
+          count: result.count || 0
+        };
+    } else {
+        mainProducts.value = [];
+        pagination.value = { page: 1, pages: 1, count: 0 };
+        if (!result?.error && mainProducts.value.length === 0 && !loadingMainProducts.value) { // Chỉ toast khi không loading
+           toast.info("Không tìm thấy sản phẩm nào phù hợp.");
+        }
+    }
   } catch (error) {
-    console.error("HomeView: Lỗi fetchProducts:", error.response?.data?.message || error.message);
-    products.value = [];
+    console.error("HomeView: Lỗi fetchMainProducts:", error.response?.data?.message || error.message);
+    mainProducts.value = [];
     pagination.value = { page: 1, pages: 1, count: 0 };
     toast.error(error.response?.data?.message || "Không thể tải danh sách sản phẩm.");
   } finally {
-    loading.value = false;
+    loadingMainProducts.value = false;
   }
 };
 
-// Đổi tên hàm fetchSuggestedProducts thành fetchDefaultSuggestedProducts (THAY ĐỔI)
 const fetchDefaultSuggestedProducts = async () => {
-    // Chỉ fetch nếu chưa có gợi ý liên quan (để tránh gọi thừa)
-    // và cũng chưa có default suggestions nào được tải
-    if ((hasRelatedRecommendationsFromStore.value && relatedRecommendationsFromStore.value.length > 0) || defaultSuggestedProducts.value.length > 0) {
-        loadingDefaultSuggested.value = false; // Nếu đã có thì không cần loading
+    if (defaultSuggestedProducts.value.length > 0 || loadingDefaultSuggested.value) {
         return;
     }
-
+    if (hasRelatedRecommendationsFromStore.value && Array.isArray(relatedRecommendationsFromStore.value) && relatedRecommendationsFromStore.value.length > 0) {
+        return;
+    }
     loadingDefaultSuggested.value = true;
     try {
-        // Ví dụ: Lấy các sản phẩm bán chạy nhất hoặc mới nhất làm default
         const result = await store.dispatch('product/searchProducts', { sortBy: 'popular', pageSize: 8 });
-        // Map dữ liệu default suggestions cho ProductCard
-        defaultSuggestedProducts.value = (result?.products || []).map(p => ({
-             _id: p._id,
-             original_id: p.original_id || p._id, // Cần original_id nếu ProductCard dùng để điều hướng
-             name: p.name,
-             images: p.images && p.images.length > 0 ? p.images : ['/images/placeholder-image.png'], // Đảm bảo images là mảng
-             price: p.price,
-             rating: p.rating, // Hoặc ocop_rating tùy dữ liệu
-             numReviews: p.numReviews,
-             countInStock: p.countInStock,
-        }));
+        if (result && result.products) {
+             defaultSuggestedProducts.value = result.products;
+        } else {
+            defaultSuggestedProducts.value = [];
+        }
     } catch (error) {
         console.error("HomeView: Lỗi fetchDefaultSuggestedProducts:", error);
         defaultSuggestedProducts.value = [];
-        // Có thể không cần toast ở đây vì đây là gợi ý phụ
     } finally {
         loadingDefaultSuggested.value = false;
     }
 }
 
-const selectProvince = (province) => { // Giữ nguyên
-  if (selectedProvince.value === province) return;
-  selectedProvince.value = province;
-  fetchProducts(1);
+const triggerFetchPersonalizedRecommendations = () => {
+    const lastViewedId = lastViewedProductIdFromStore.value;
+    if (lastViewedId && !loadingRecommendationsFromStore.value) {
+        // Kiểm tra nếu chưa có data hoặc data không khớp ID hiện tại (tùy logic bạn muốn)
+        // Hiện tại, cứ fetch nếu có ID và không đang loading
+        store.dispatch('recommendation/fetchRelatedRecommendations', {
+            productId: lastViewedId,
+            topN: 4
+        });
+    }
 };
 
-const selectCategory = (category) => { // Giữ nguyên
+const selectProvince = (province) => {
+  if (selectedProvince.value === province) return;
+  selectedProvince.value = province;
+  fetchMainProducts(1);
+};
+
+const selectCategory = (category) => {
     if (selectedCategory.value === category) return;
     selectedCategory.value = category;
-    fetchProducts(1);
+    fetchMainProducts(1);
 }
 
-const applyPriceFilter = () => { // Giữ nguyên
-    fetchProducts(1);
+const applyPriceFilter = () => {
+    fetchMainProducts(1);
 }
 
-const resetPriceFilter = () => { // Giữ nguyên
-    if (filterPrice.value.min != null || filterPrice.value.max != null) { // So sánh với null
+const resetPriceFilter = () => {
+    if (filterPrice.value.min != null || filterPrice.value.max != null) {
         filterPrice.value = { min: null, max: null };
-        fetchProducts(1);
+        fetchMainProducts(1);
     }
 }
 
-const resetAllFilters = () => { // Giữ nguyên
+const resetAllFilters = () => {
     selectedProvince.value = null;
     selectedCategory.value = null;
     filterPrice.value = { min: null, max: null };
     sortBy.value = 'popular';
-    fetchProducts(1);
-}
+    fetchMainProducts(1);
+    localStorage.removeItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY);
+    localStorage.removeItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER);
+};
 
-const changeSort = (sortKey) => { // Giữ nguyên
+const changeSort = (sortKey) => {
     if (sortBy.value === sortKey) return;
     sortBy.value = sortKey;
-    fetchProducts(1);
+    fetchMainProducts(1);
 }
 
-const changePage = (page) => { // Giữ nguyên
+const changePage = (page) => {
     if (page >= 1 && page <= pagination.value.pages && page !== pagination.value.page) {
-        fetchProducts(page);
+        fetchMainProducts(page);
          const productListElement = document.getElementById('productListSection');
          if (productListElement) {
-             productListElement.scrollIntoView({ behavior: 'smooth' });
+             productListElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
          }
     }
 };
 
-const handleAddToCart = async ({ productId, quantity }) => { // Giữ nguyên
+const handleAddToCart = async ({ productId, quantity }) => {
   try {
       await store.dispatch('cart/addToCart', { productId, quantity });
       toast.success('Đã thêm vào giỏ hàng!');
@@ -418,32 +460,163 @@ const handleAddToCart = async ({ productId, quantity }) => { // Giữ nguyên
   }
 };
 
-// --- Lifecycle Hook & Watchers (CẬP NHẬT) ---
-onMounted(() => {
-  fetchProducts(); // Tải sản phẩm chính
-  // Kiểm tra và tải gợi ý mặc định nếu chưa có gợi ý cá nhân hóa
-  if (!hasRelatedRecommendationsFromStore.value || relatedRecommendationsFromStore.value.length === 0) {
-      fetchDefaultSuggestedProducts();
+// --- Lifecycle Hooks & Watchers ---
+onMounted(async () => {
+  await fetchMainProducts();
+
+  if (suggestionSectionTitle.value === 'Dành riêng cho bạn') {
+    triggerFetchPersonalizedRecommendations();
+  } else if (defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
+    fetchDefaultSuggestedProducts();
   }
 });
 
-// Watch for changes from Vuex store
-watch(hasRelatedRecommendationsFromStore, (newHasRecs) => {
-    if (!newHasRecs && defaultSuggestedProducts.value.length === 0) {
-        // Nếu không có gợi ý cá nhân hóa (ví dụ sau khi clear store) VÀ cũng chưa có default
-        // thì fetch lại default suggestions.
-        fetchDefaultSuggestedProducts();
+watch(hasRelatedRecommendationsFromStore, (newHasRecs, oldHasRecs) => {
+    console.log('[HomeView Watcher hasRelatedRecs] TRIGGERED. NewVal:', newHasRecs, 'OldVal:', oldHasRecs); // LOG 1
+    console.log('[HomeView Watcher hasRelatedRecs] Current relatedRecommendationsFromStore.value:', JSON.parse(JSON.stringify(relatedRecommendationsFromStore.value))); // LOG 2
+    console.log('[HomeView Watcher hasRelatedRecs] Current lastViewedProductIdFromStore.value:', lastViewedProductIdFromStore.value); // LOG 3
+
+    const currentRelatedRecs = relatedRecommendationsFromStore.value;
+
+    if (newHasRecs && Array.isArray(currentRelatedRecs) && currentRelatedRecs.length > 0) {
+        console.log('[HomeView Watcher hasRelatedRecs] CONDITIONS MET. Setting localStorage items.'); // LOG 4
+        localStorage.setItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY, 'true');
+        if(lastViewedProductIdFromStore.value) {
+            localStorage.setItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER, String(lastViewedProductIdFromStore.value));
+            console.log(`[HomeView Watcher hasRelatedRecs] Set trigger ID to: ${lastViewedProductIdFromStore.value}`); // LOG 5
+        } else {
+            console.warn('[HomeView Watcher hasRelatedRecs] lastViewedProductIdFromStore is null/undefined, cannot set trigger ID.');
+        }
+    } else if (!newHasRecs) {
+        console.log('[HomeView Watcher hasRelatedRecs] newHasRecs is false. Checking for default suggestions.');
+        if (defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
+            fetchDefaultSuggestedProducts();
+        }
+      } else {
+        console.warn('[HomeView Watcher hasRelatedRecs] newHasRecs is true, but other conditions not met for setting localStorage.'); // LOG 6
+        console.warn('[HomeView Watcher hasRelatedRecs] Is currentRelatedRecs an array?', Array.isArray(currentRelatedRecs));
+        console.warn('[HomeView Watcher hasRelatedRecs] currentRelatedRecs length:', currentRelatedRecs ? currentRelatedRecs.length : 'N/A');
     }
 });
 
-// Bạn không cần watch các filter khác ở đây nếu các hàm select.../apply... đã gọi fetchProducts(1)
+watch(() => store.state.recommendation.relatedRecommendations, (newRecs, oldRecs) => {
+    console.log('[HomeView Direct State Watcher] TRIGGERED.');
+    console.log('[HomeView Direct State Watcher] New recommendations:', JSON.parse(JSON.stringify(newRecs)));
+    console.log('[HomeView Direct State Watcher] Length:', newRecs ? newRecs.length : 'N/A');
+
+    // Lấy lastViewedProductId từ getter, vì nó có thể đã được persist và cập nhật
+    const currentLastViewedId = store.getters['recommendation/lastViewedProductId'];
+    console.log('[HomeView Direct State Watcher] Current lastViewedProductIdFromStore:', currentLastViewedId);
+
+
+    if (Array.isArray(newRecs) && newRecs.length > 0) {
+        console.log('[HomeView Direct State Watcher] CONDITIONS MET. Setting localStorage items.');
+        localStorage.setItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY, 'true');
+        if (currentLastViewedId) { // Sử dụng currentLastViewedId đã lấy ở trên
+            localStorage.setItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER, String(currentLastViewedId));
+            console.log(`[HomeView Direct State Watcher] Set trigger ID to: ${currentLastViewedId}`);
+        } else {
+             console.warn('[HomeView Direct State Watcher] lastViewedProductId is null/undefined, cannot set trigger ID.');
+        }
+        // Cập nhật shouldShowPersonalizedTitle nếu bạn đang dùng ref đó
+        if (typeof shouldShowPersonalizedTitle !== 'undefined' && shouldShowPersonalizedTitle.value === false) { // Thêm kiểm tra typeof
+            console.log('[HomeView Direct State Watcher] Updating shouldShowPersonalizedTitle to true');
+            shouldShowPersonalizedTitle.value = true;
+        }
+
+    } else {
+        console.log('[HomeView Direct State Watcher] Conditions NOT MET or newRecs is empty.');
+        // Nếu mảng gợi ý trở nên rỗng sau khi đã từng có dữ liệu,
+        // có thể bạn muốn xóa các key localStorage để quay về "Sản phẩm nổi bật"
+        if (Array.isArray(oldRecs) && oldRecs.length > 0 && (!newRecs || newRecs.length === 0)) {
+            console.log('[HomeView Direct State Watcher] Recommendations became empty, clearing localStorage keys.');
+            localStorage.removeItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER);
+            if (typeof shouldShowPersonalizedTitle !== 'undefined') { // Thêm kiểm tra typeof
+                shouldShowPersonalizedTitle.value = false;
+            }
+        }
+    }
+}, { deep: true }); // QUAN TRỌNG: deep: true để theo dõi thay đổi bên trong mảng
+
+
+watch(lastViewedProductIdFromStore, (newId, oldId) => {
+    if (newId && newId !== oldId) {
+        // Khi lastViewedId thay đổi (người dùng xem sản phẩm khác),
+        // Vuex store 'recommendation' nên tự động gọi fetchRelatedRecommendations
+        // (nếu action `setLastViewedProduct` của bạn có dispatch).
+        // Hoặc ProductDetailView tự gọi.
+        // HomeView cũng có thể trigger nếu nó đang active và muốn cập nhật ngay.
+        if (suggestionSectionTitle.value === 'Dành riêng cho bạn') { // Chỉ trigger nếu UI đang muốn hiển thị personalized
+             triggerFetchPersonalizedRecommendations();
+        }
+    } else if (!newId && oldId) {
+        localStorage.removeItem(LOCAL_STORAGE_SUGGESTION_PREF_KEY);
+        localStorage.removeItem(LOCAL_STORAGE_LAST_VIEWED_ID_FOR_SUGGESTION_TRIGGER);
+        if (defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value && !hasRelatedRecommendationsFromStore.value) {
+            fetchDefaultSuggestedProducts();
+        }
+    }
+});
+
+watch(suggestionSectionTitle, (newTitle, oldTitle) => {
+    if (newTitle === 'Sản phẩm nổi bật' && oldTitle === 'Dành riêng cho bạn') {
+        if (defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
+             fetchDefaultSuggestedProducts();
+        }
+    } else if (newTitle === 'Dành riêng cho bạn' && oldTitle === 'Sản phẩm nổi bật') {
+        if (!hasRelatedRecommendationsFromStore.value && !loadingRecommendationsFromStore.value) {
+             triggerFetchPersonalizedRecommendations();
+        }
+    }
+});
 
 </script>
 
 <style scoped>
-/* GIỮ NGUYÊN CSS CỦA BẠN */
+/* CSS CỦA BANNER */
+.banner {
+  position: relative;
+  width: 100%;
+  min-height: 250px;
+  background: linear-gradient(135deg, #198754 0%, #63d471 100%);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  padding: 2rem 1rem;
+  font-family: 'Arial', sans-serif;
+}
+.banner__title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+.banner__subtitle {
+  font-size: 1.1rem;
+  margin: 0.5rem 0 0;
+  max-width: 90%;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+@media (max-width: 768px) {
+  .banner { min-height: 200px; padding: 1.5rem 10px; }
+  .banner__title { font-size: 1.6rem; }
+  .banner__subtitle { font-size: 1rem; }
+}
+@media (max-width: 576px) {
+  .banner { min-height: 180px; padding: 1rem 10px; }
+  .banner__title { font-size: 1.4rem; }
+  .banner__subtitle { font-size: 0.9rem; }
+}
+
+/* CSS CHUNG */
 .home-page {
-  background: #f8f9fa; /* Màu nền sáng hơn */
+  background: #f8f9fa;
 }
 .filter-sidebar .card {
     border-radius: 0.5rem;
@@ -453,9 +626,9 @@ watch(hasRelatedRecommendationsFromStore, (newHasRecs) => {
     font-size: 0.95rem;
 }
 .province-list, .category-list {
-  max-height: 250px; /* Giới hạn chiều cao cho list tỉnh/danh mục */
+  max-height: 250px;
   overflow-y: auto;
-  font-size: 0.9rem; /* Chữ nhỏ hơn cho bộ lọc */
+  font-size: 0.9rem;
 }
 .province-list::-webkit-scrollbar,
 .category-list::-webkit-scrollbar {
@@ -485,11 +658,11 @@ watch(hasRelatedRecommendationsFromStore, (newHasRecs) => {
    font-weight: 600;
 }
 .list-group-item-action:hover {
-   background-color: #e9ecef; /* Màu hover nhẹ */
+   background-color: #e9ecef;
 }
 .suggested-section .row {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #ced4da #f8f9fa; /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #ced4da #f8f9fa;
 }
 .suggested-section .row::-webkit-scrollbar {
   height: 8px;
@@ -506,7 +679,7 @@ watch(hasRelatedRecommendationsFromStore, (newHasRecs) => {
 .pagination .page-link {
     font-size: 0.9rem;
     padding: 0.4rem 0.75rem;
-    color: #198754; /* Màu link pagination */
+    color: #198754;
 }
 .pagination .page-item.disabled .page-link {
     color: #adb5bd;
@@ -516,17 +689,16 @@ watch(hasRelatedRecommendationsFromStore, (newHasRecs) => {
     border-color: #198754;
     color: white;
 }
-.page-link:hover { /* Thêm hover cho pagination links */
+.page-link:hover {
     color: #105c37;
-    /* background-color: #e9ecef; */ /* Tùy chọn màu nền hover */
 }
 .sort-options .btn {
     font-size: 0.85rem;
     padding: 0.3rem 0.6rem;
 }
-@media (max-width: 991.98px) { /* lg breakpoint */
+@media (max-width: 991.98px) {
   .sticky-lg-top {
-     position: static !important; /* Disable sticky on smaller screens */
+     position: static !important;
   }
   .filter-sidebar .card {
      margin-bottom: 1.5rem;

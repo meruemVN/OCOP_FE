@@ -19,7 +19,7 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="products.length === 0" class="text-center py-5 card border-light shadow-sm">
+    <div v-else-if="!products || products.length === 0" class="text-center py-5 card border-light shadow-sm">
        <div class="card-body">
            <i class="fas fa-box-open fa-3x text-light mb-3"></i>
            <p class="text-muted">Bạn chưa có sản phẩm nào.</p>
@@ -40,6 +40,7 @@
                     <th scope="col" class="text-end">Giá</th>
                     <th scope="col" class="text-center">Tồn kho</th>
                     <th scope="col" class="text-center">Đã bán</th>
+                    <th scope="col" class="text-center">Xuất xứ</th>
                     <th scope="col" class="text-center" style="width: 120px;">Thao tác</th>
                 </tr>
                 </thead>
@@ -52,7 +53,7 @@
                                 class="rounded border me-2 flex-shrink-0"
                                 style="width: 40px; height: 40px; object-fit: cover; background-color: #f8f9fa;"
                                 @error="onImageError">
-                           <span class="fw-medium text-dark text-truncate" :title="product.name">
+                           <span class="fw-medium text-dark text-truncate" :title="product.name" style="max-width: 200px; display: inline-block;">
                               {{ product.name }}
                            </span>
                         </div>
@@ -61,6 +62,7 @@
                     <td class="text-end">{{ formatCurrency(product.price) }}</td>
                     <td class="text-center">{{ product.countInStock }}</td>
                     <td class="text-center">{{ product.sold || 0 }}</td>
+                    <td class="text-center">{{ product.origin || 'N/A' }}</td> 
                     <td class="text-center">
                     <div class="btn-group btn-group-sm">
                         <button class="btn btn-outline-primary" @click="openEditProductModal(product)" title="Sửa">
@@ -79,7 +81,7 @@
 
     <!-- Modal thêm/sửa sản phẩm (Bootstrap 5) -->
     <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true" ref="productModalRef">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg"> {/* Tăng modal-xl nếu cần thêm không gian */}
             <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title text-success fw-semibold" id="productModalLabel">
@@ -90,50 +92,62 @@
             </div>
             <div class="modal-body">
                 <form @submit.prevent="submitProductForm" class="needs-validation" novalidate ref="productFormRef">
-                    <!-- Product Name -->
-                    <div class="mb-3">
-                        <label for="productName" class="form-label">Tên sản phẩm <span class="text-danger">*</span></label>
-                        <input type="text" id="productName" v-model.trim="form.name" class="form-control" required placeholder="Nhập tên sản phẩm">
-                         <div class="invalid-feedback">Vui lòng nhập tên sản phẩm.</div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label for="productName" class="form-label">Tên sản phẩm <span class="text-danger">*</span></label>
+                            <input type="text" id="productName" v-model.trim="form.name" class="form-control" required placeholder="Nhập tên sản phẩm">
+                            <div class="invalid-feedback">Vui lòng nhập tên sản phẩm.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productOriginalId" class="form-label">ID Gốc (CSV) <span class="text-danger">*</span></label>
+                            <input type="number" id="productOriginalId" v-model.number="form.original_id" class="form-control" required placeholder="ID từ file CSV">
+                            <div class="invalid-feedback">Vui lòng nhập ID gốc (số).</div>
+                        </div>
                     </div>
-                    <!-- Category -->
-                     <div class="mb-3">
-                        <label for="productCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
-                        <input type="text" id="productCategory" v-model.trim="form.category" class="form-control" required placeholder="Ví dụ: Nông sản khô, Thủ công mỹ nghệ">
-                         <div class="invalid-feedback">Vui lòng nhập danh mục.</div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label for="productCategory" class="form-label">Danh mục <span class="text-danger">*</span></label>
+                            <input type="text" id="productCategory" v-model.trim="form.category" class="form-control" required placeholder="Ví dụ: Nông sản khô">
+                            <div class="invalid-feedback">Vui lòng nhập danh mục.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="productOrigin" class="form-label">Xuất xứ</label>
+                            <input type="text" id="productOrigin" v-model.trim="form.origin" class="form-control" placeholder="Ví dụ: Quảng Nam, Việt Nam">
+                        </div>
                     </div>
-                     <!-- Description -->
+
                     <div class="mb-3">
                         <label for="productDescription" class="form-label">Mô tả <span class="text-danger">*</span></label>
-                        <textarea id="productDescription" v-model.trim="form.description" class="form-control" rows="4" required placeholder="Mô tả chi tiết về sản phẩm..."></textarea>
+                        <textarea id="productDescription" v-model.trim="form.description" class="form-control" rows="3" required placeholder="Mô tả chi tiết về sản phẩm..."></textarea>
                         <div class="invalid-feedback">Vui lòng nhập mô tả sản phẩm.</div>
                     </div>
-                    <!-- Price & Stock -->
+
                     <div class="row g-3 mb-3">
                          <div class="col-md-4">
                              <label for="productPrice" class="form-label">Giá (VNĐ) <span class="text-danger">*</span></label>
-                             <input type="number" id="productPrice" v-model="form.price" min="0" class="form-control" required>
+                             <input type="number" id="productPrice" v-model.number="form.price" min="0" class="form-control" required>
                               <div class="invalid-feedback">Vui lòng nhập giá hợp lệ (>= 0).</div>
                          </div>
                          <div class="col-md-4">
                              <label for="productStock" class="form-label">Tồn kho <span class="text-danger">*</span></label>
-                             <input type="number" id="productStock" v-model="form.countInStock" min="0" class="form-control" required>
+                             <input type="number" id="productStock" v-model.number="form.countInStock" min="0" class="form-control" required>
                               <div class="invalid-feedback">Vui lòng nhập số lượng tồn kho (>= 0).</div>
                          </div>
                          <div class="col-md-4">
                              <label for="productSold" class="form-label">Đã bán</label>
-                             <input type="number" id="productSold" v-model="form.sold" min="0" class="form-control">
+                             <input type="number" id="productSold" v-model.number="form.sold" min="0" class="form-control">
                              <div class="invalid-feedback">Vui lòng nhập số lượng đã bán (>= 0).</div>
                          </div>
                     </div>
-                     <!-- Images (Simple URL input for now) -->
+
                      <div class="mb-3">
                          <label for="productImages" class="form-label">Link ảnh (cách nhau bởi dấu phẩy)</label>
                          <input type="text" id="productImages" v-model="imageInput" class="form-control" placeholder="https://link1.jpg, https://link2.png">
                          <div class="form-text">Nhập các link ảnh, cách nhau bởi dấu phẩy. Ảnh đầu tiên sẽ là ảnh đại diện.</div>
                      </div>
 
-                    <div class="modal-footer px-0 pb-0">
+                    <div class="modal-footer px-0 pb-0 mt-4">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
                         <button type="submit" class="btn btn-success" :disabled="isSubmitting">
                            <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
@@ -150,173 +164,191 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue';
-import apiClient from '@/services/api'; // Đảm bảo import đúng tên và đường dẫn
+import { ref, onMounted } from 'vue';
+import apiClient from '@/services/api';
 import { useToast } from 'vue-toastification';
-// Import Bootstrap Modal JS (chỉ cần import nếu điều khiển bằng JS, data-bs-toggle hoạt động không cần import này)
 import { Modal } from 'bootstrap';
-// Import icons
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faBoxes, faPlus, faEdit, faTrash, faSave, faPlusCircle, faBoxOpen } from '@fortawesome/free-solid-svg-icons';
 
 library.add(faBoxes, faPlus, faEdit, faTrash, faSave, faPlusCircle, faBoxOpen);
 
-
 const toast = useToast();
-const products = ref([]); // Ref để lưu danh sách sản phẩm
-const loading = ref(true); // Trạng thái loading cho cả trang
-const productModalRef = ref(null); // Ref cho DOM element của modal
-const productFormRef = ref(null); // Ref cho DOM element của form trong modal
-let productModalInstance = null; // Instance của Bootstrap Modal
+const products = ref([]);
+const loading = ref(true);
+const productModalRef = ref(null);
+const productFormRef = ref(null);
+let productModalInstance = null;
 
-// Form state
+// Phù hợp với Product Model mới và dữ liệu mẫu
 const initialFormState = {
   _id: null,
   name: '',
+  original_id: null, // Bắt buộc khi tạo mới
   category: '',
-  description: '', // Thêm description
-  price: 0,
-  countInStock: 0,
+  description: '',
+  price: null,
+  countInStock: null,
   sold: 0,
-  images: [], // Lưu dưới dạng mảng URLs
+  images: [],
+  origin: '', // Thêm origin vào đây
+  // Các trường đã bị loại bỏ: producer, short_description, product_url, ocop_rating, brand
 };
 const form = ref({ ...initialFormState });
-const imageInput = ref(''); // Input riêng cho chuỗi link ảnh
-const isSubmitting = ref(false); // Trạng thái loading cho form submit
+const imageInput = ref('');
+const isSubmitting = ref(false);
 
-// Placeholder image
-const placeholderImage = '/images/placeholder.png'; // Đảm bảo có ảnh này trong public/images
+const placeholderImage = '/images/placeholder.png'; // Đảm bảo ảnh này có trong public/images/
 
-// --- Methods ---
-
-// Fetch products từ backend
 async function fetchProducts() {
   loading.value = true;
+  console.log('Fetching products...'); // Log bắt đầu
   try {
-    // Endpoint này cần backend hỗ trợ trả về sản phẩm của distributor hiện tại
     const response = await apiClient.get('/products/my-products');
-    // Gán response.data (phải là mảng)
-    products.value = Array.isArray(response.data) ? response.data : [];
+    console.log('API Response:', response); // Log toàn bộ response
+
+    if (response && response.data && Array.isArray(response.data.products)) {
+      products.value = response.data.products;
+      console.log('Products loaded:', products.value); // Log sản phẩm đã tải
+      if (products.value.length === 0) {
+          toast.info('Bạn chưa có sản phẩm nào hoặc không tìm thấy sản phẩm nào.');
+      }
+    } else {
+      products.value = [];
+      console.warn("API response.data.products không phải là một mảng hoặc không tồn tại:", response.data);
+      toast.info('Không có sản phẩm nào được tìm thấy hoặc dữ liệu không hợp lệ.');
+    }
   } catch (err) {
     console.error("Lỗi tải sản phẩm:", err);
-    toast.error(err.response?.data?.message || 'Không thể tải danh sách sản phẩm.');
-    products.value = []; // Đặt về rỗng khi lỗi
+    if (err.response) {
+        console.error("API Error Response Data:", err.response.data);
+        console.error("API Error Response Status:", err.response.status);
+        console.error("API Error Response Headers:", err.response.headers);
+    } else if (err.request) {
+        console.error("API Error Request:", err.request);
+    } else {
+        console.error('API Error Message:', err.message);
+    }
+    toast.error(err.response?.data?.message || 'Không thể tải danh sách sản phẩm. Vui lòng kiểm tra console.');
+    products.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-// Format tiền tệ
 const formatCurrency = (value) => {
   if (value === undefined || value === null) return 'N/A';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
 
-// Lấy ảnh hiển thị (ảnh đầu tiên hoặc placeholder)
 function getProductImage(product) {
     return product.images?.[0] || placeholderImage;
 }
 
-// Xử lý lỗi ảnh
 function onImageError(event) {
    event.target.src = placeholderImage;
 }
 
-// Reset form về trạng thái ban đầu
 function resetForm() {
   form.value = { ...initialFormState };
-  imageInput.value = ''; // Reset cả input ảnh
-   // Reset validation state của form
-   productFormRef.value?.classList.remove('was-validated');
+  imageInput.value = '';
+  if (productFormRef.value) {
+    productFormRef.value.classList.remove('was-validated');
+  }
 }
 
-// Mở modal để thêm sản phẩm
 function openAddProductModal() {
   resetForm();
   productModalInstance?.show();
 }
 
-// Mở modal để sửa sản phẩm
 function openEditProductModal(product) {
-  // Deep copy để tránh thay đổi trực tiếp product gốc
-  form.value = JSON.parse(JSON.stringify(product));
-  // Chuyển mảng images thành chuỗi để hiển thị trong input
-  imageInput.value = form.value.images?.join(', ') || '';
+  const productData = { ...initialFormState, ...JSON.parse(JSON.stringify(product)) };
+  form.value = productData;
+  imageInput.value = product.images?.join(', ') || '';
+  if (productFormRef.value) {
+    productFormRef.value.classList.remove('was-validated');
+  }
   productModalInstance?.show();
-   // Reset validation state
-   productFormRef.value?.classList.remove('was-validated');
 }
 
-// Đóng modal
 function closeDialog() {
   productModalInstance?.hide();
-  // Việc reset form sẽ được xử lý bởi event 'hidden.bs.modal'
 }
 
-// Xử lý submit form (Thêm mới hoặc Cập nhật)
-async function submitProductForm(event) {
-   const formElement = event.target;
+async function submitProductForm() {
+   const formElement = productFormRef.value;
    if (!formElement.checkValidity()) {
-       event.preventDefault();
-       event.stopPropagation();
        formElement.classList.add('was-validated');
        return;
    }
-   formElement.classList.add('was-validated');
 
   isSubmitting.value = true;
   try {
-    // Chuyển chuỗi ảnh thành mảng URLs
     const imagesArray = imageInput.value
                         .split(',')
                         .map(url => url.trim())
-                        .filter(url => url); // Lọc bỏ link rỗng
+                        .filter(url => url);
 
+    // Chuẩn bị productData phù hợp với model mới
     const productData = {
-        ...form.value,
-        images: imagesArray,
-        // Đảm bảo các giá trị số là số, nếu không phải thì gán 0
+        name: form.value.name,
+        original_id: Number(form.value.original_id), // Luôn gửi, backend yêu cầu
+        category: form.value.category,
+        description: form.value.description,
         price: Number(form.value.price) || 0,
         countInStock: Number(form.value.countInStock) || 0,
-        sold: Number(form.value.sold) || 0,
+        images: imagesArray,
+        // Các trường tùy chọn, chỉ gửi nếu có giá trị
+        ...(form.value.sold !== null && form.value.sold !== undefined && { sold: Number(form.value.sold) }),
+        ...(form.value.origin && { origin: form.value.origin }),
     };
 
-    if (form.value._id) {
-      // --- Cập nhật sản phẩm ---
+    // Validate original_id phía client khi tạo mới (backend cũng sẽ validate)
+    if (!form.value._id && (productData.original_id === undefined || productData.original_id === null || isNaN(productData.original_id))) {
+        toast.error('Vui lòng nhập ID Gốc (CSV) hợp lệ cho sản phẩm mới.');
+        isSubmitting.value = false;
+        const originalIdInput = formElement.querySelector('#productOriginalId');
+        if (originalIdInput) originalIdInput.classList.add('is-invalid');
+        return;
+    }
+
+
+    if (form.value._id) { // Cập nhật
       const response = await apiClient.put(`/products/${form.value._id}`, productData);
-      // Cập nhật lại product trong danh sách products.value
       const index = products.value.findIndex(p => p._id === form.value._id);
       if (index !== -1) {
-        products.value.splice(index, 1, response.data); // Thay thế bằng data mới từ API
+        products.value.splice(index, 1, response.data);
       }
       toast.success('Đã cập nhật sản phẩm thành công!');
-    } else {
-      // --- Thêm sản phẩm mới ---
-      // Loại bỏ _id trước khi gửi đi tạo mới
-      const { _id, ...newProductData } = productData;
-      const response = await apiClient.post('/products', newProductData);
-       // Thêm product mới vào đầu danh sách
-       products.value.unshift(response.data);
+    } else { // Thêm mới
+      const response = await apiClient.post('/products', productData);
+      products.value.unshift(response.data);
       toast.success('Đã thêm sản phẩm thành công!');
     }
     closeDialog();
-    // Không cần fetch lại toàn bộ list nếu đã cập nhật/thêm thành công
-    // await fetchProducts();
   } catch (err) {
     console.error('Lỗi lưu sản phẩm:', err);
-    toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.');
+    const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra khi lưu sản phẩm.';
+    toast.error(errorMessage);
+    if (err.response?.data?.errors) { // MongoDB validation errors
+        let details = "Chi tiết lỗi: ";
+        for (const key in err.response.data.errors) {
+            details += `${err.response.data.errors[key].message} `;
+        }
+        toast.error(details, { timeout: 7000 });
+    } else if (err.response?.data?.keyValue) { // MongoDB duplicate key error
+        toast.error(`Lỗi trùng lặp: ${JSON.stringify(err.response.data.keyValue)} đã tồn tại.`, { timeout: 7000 });
+    }
   } finally {
     isSubmitting.value = false;
-     formElement.classList.remove('was-validated'); // Reset validation sau khi submit
   }
 }
 
-// Xác nhận và xóa sản phẩm
 async function confirmDeleteProduct(product) {
   if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${product.name}" không? Hành động này không thể hoàn tác.`)) {
     try {
       await apiClient.delete(`/products/${product._id}`);
-      // Xóa khỏi danh sách products.value
       products.value = products.value.filter(p => p._id !== product._id);
       toast.success(`Đã xóa sản phẩm "${product.name}".`);
     } catch (err) {
@@ -326,42 +358,33 @@ async function confirmDeleteProduct(product) {
   }
 }
 
-// --- Lifecycle Hooks ---
 onMounted(() => {
-  fetchProducts(); // Tải sản phẩm khi component được mount
-
-  // Khởi tạo instance Modal của Bootstrap
+  fetchProducts();
   const modalElement = productModalRef.value;
   if (modalElement) {
     productModalInstance = new Modal(modalElement);
-
-    // Thêm listener để reset form khi modal ẩn đi
     modalElement.addEventListener('hidden.bs.modal', () => {
        resetForm();
-       isSubmitting.value = false; // Reset trạng thái submit
+       isSubmitting.value = false;
     });
   }
 });
-
-// --- Watchers (Optional) ---
-// Có thể thêm watcher để xử lý logic phức tạp hơn nếu cần
 </script>
 
 <style scoped>
-/* Thêm CSS tùy chỉnh nếu cần */
 .table th {
-    font-weight: 600; /* Chữ thead đậm hơn */
-    white-space: nowrap; /* Ngăn xuống dòng ở header */
+    font-weight: 600;
+    white-space: nowrap;
 }
 .table td {
     vertical-align: middle;
 }
 .modal-dialog {
-    max-width: 650px; /* Kích thước modal lớn hơn */
+    max-width: 750px; /* Có thể cần modal-xl nếu nhiều trường hơn nữa */
 }
-.product-name {
-    max-width: 250px; /* Giới hạn chiều rộng tên SP trong bảng */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* Responsive cho table (nếu cần) */
-/* @media (max-width: 768px) { ... } */
 </style>

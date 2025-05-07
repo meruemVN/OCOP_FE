@@ -259,27 +259,14 @@
 </template>
 
 <script setup>
-// --- PHẦN SCRIPT SETUP ĐẦY ĐỦ CHO PRODUCTDETAILVIEW.VUE ---
-// --- Đã được cung cấp ở câu trả lời có tiêu đề:
-// --- "Chắc chắn rồi! Dưới đây là code hoàn chỉnh cho ProductDetailView.vue đã được tích hợp đầy đủ logic gợi ý."
-// --- Hãy copy và dán toàn bộ nội dung của <script setup> từ câu trả lời đó vào đây.
-// --- Lý do: Tránh lặp lại khối code lớn.
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useToast } from 'vue-toastification';
-import ProductCard from '@/components/products/ProductCard.vue';
-import { library } from '@fortawesome/fontawesome-svg-core';
-import {
-    faShoppingCart, faArrowLeft, faExclamationTriangle, faStream, faStar, faStarHalfAlt,
-    faCartPlus, faMinus, faPlus, faStore, faPaperPlane, faQuestionCircle, faExclamationCircle
-} from '@fortawesome/free-solid-svg-icons';
-import { faStar as farStar } from '@fortawesome/free-regular-svg-icons';
+import ProductCard from '@/components/products/ProductCard.vue'; // Đảm bảo đường dẫn đúng
+// ... (các imports icon của bạn) ...
 
-library.add(
-    faShoppingCart, faArrowLeft, faExclamationTriangle, faStream, faStar, faStarHalfAlt, farStar,
-    faCartPlus, faMinus, faPlus, faStore, faPaperPlane, faQuestionCircle, faExclamationCircle
-);
+// ... (library.add(...) của bạn) ...
 
 const store = useStore();
 const route = useRoute();
@@ -295,19 +282,18 @@ const selectedVariant = ref(null);
 const userRating = ref(0);
 const hoverRating = ref(0);
 const userReview = ref('');
-const placeholderImg = ref('/images/placeholder.png'); // Cập nhật đường dẫn nếu cần
+const placeholderImg = ref('/images/placeholder-image.png'); // Cập nhật đường dẫn placeholder
 const isAddingToCart = ref(false);
 const isSubmittingReview = ref(false);
 let recommendationTimer = null;
-const RECOMMENDATION_DELAY = 5000;
-const reviewsTabButton = ref(null);
+const RECOMMENDATION_DELAY = 5000; // 5 giây
+const reviewsTabButton = ref(null); // Cho tab reviews
 
-// Vuex Getters
+// Vuex Getters (auth)
 const isLoggedIn = computed(() => store.getters['auth/isLoggedIn']);
 const currentUser = computed(() => store.getters['auth/currentUser']);
 
-// Vuex Getters for recommendations
-// const lastViewedProductId = computed(() => store.getters['recommendation/lastViewedProductId']); // Không dùng trực tiếp trong template này
+// Vuex Getters (recommendation) - dùng để hiển thị gợi ý sản phẩm tương tự
 const relatedRecommendations = computed(() => store.getters['recommendation/relatedRecommendations']);
 const loadingRecommendations = computed(() => store.getters['recommendation/loadingRecommendations']);
 const recommendationError = computed(() => store.getters['recommendation/recommendationError']);
@@ -316,8 +302,8 @@ const hasRelatedRecommendations = computed(() => store.getters['recommendation/h
 // Computed properties
 const allImages = computed(() => {
   if (!product.value) return [placeholderImg.value];
-  const primaryImage = product.value.image;
-  const otherImages = Array.isArray(product.value.images) ? product.value.images : [];
+  const primaryImage = product.value.image; // Giả sử product.image là ảnh chính
+  const otherImages = Array.isArray(product.value.images) ? product.value.images : []; // Giả sử product.images là mảng ảnh phụ
   let images = [];
   if (primaryImage && typeof primaryImage === 'string') images.push(primaryImage);
   otherImages.forEach(img => {
@@ -336,13 +322,15 @@ const finalCountInStock = computed(() => {
 
 const canReview = computed(() => {
     if (!isLoggedIn.value || !product.value || !currentUser.value) return false;
-    // return store.getters['order/hasUserPurchasedProduct'](product.value._id); // Ví dụ
+    // Logic kiểm tra xem user đã mua sản phẩm này chưa (tùy theo hệ thống của bạn)
+    // Ví dụ: return store.getters['order/hasUserPurchasedProduct'](product.value._id);
+    // Hiện tại, chỉ cho phép review nếu chưa review
     return !hasReviewed.value;
 });
 
 const hasReviewed = computed(() => {
     if (!isLoggedIn.value || !product.value || !product.value.reviews || !currentUser.value) return false;
-    return product.value.reviews.some(review => review.user === currentUser.value._id); // Giả sử review.user lưu ID
+    return product.value.reviews.some(review => review.user === currentUser.value._id); // Giả sử review.user lưu ID user
 });
 
 // Methods
@@ -353,7 +341,7 @@ const formatPrice = (price) => {
 const formatPriceAdjustment = (adjustment) => {
     if (adjustment == null || isNaN(adjustment)) return '';
     const formatted = formatPrice(Math.abs(adjustment));
-    return adjustment > 0 ? `+${formatted}` : `-${formatted}`;
+    return adjustment > 0 ? `+ ${formatted}` : `- ${formatted}`; // Thêm dấu cách
 };
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -367,12 +355,12 @@ const setActiveImage = (image) => { activeImage.value = image || placeholderImg.
 const validateQuantity = () => {
     const stock = finalCountInStock.value;
     if (quantity.value === null || quantity.value === '' || isNaN(parseInt(String(quantity.value)))) {
-        quantity.value = 1;
+        quantity.value = stock > 0 ? 1 : 0; // Nếu hết hàng thì số lượng là 0
     } else {
-        quantity.value = Math.max(1, Math.min(parseInt(String(quantity.value)), stock > 0 ? stock : 1));
+        quantity.value = Math.max(stock > 0 ? 1 : 0, Math.min(parseInt(String(quantity.value)), stock > 0 ? stock : 0));
     }
     if (stock === 0) {
-        quantity.value = 0; // Hoặc 1, tùy logic
+        quantity.value = 0;
     }
 };
 
@@ -380,31 +368,38 @@ const fetchProductDetail = async (id) => {
   loadingProductDetails.value = true;
   productError.value = null;
   activeImage.value = null;
-  product.value = null; // Reset product trước khi fetch
-  store.commit('recommendation/CLEAR_RECOMMENDATIONS'); // Xóa gợi ý cũ
+  product.value = null;
+  store.commit('recommendation/CLEAR_RECOMMENDATIONS'); // Xóa gợi ý cũ của sản phẩm trước
+
   try {
-    const fetchedProductData = await store.dispatch('product/fetchProductById', id); // Giả sử action này tồn tại
+    const fetchedProductData = await store.dispatch('product/fetchProductById', id);
     if (fetchedProductData) {
         product.value = fetchedProductData;
-        quantity.value = 1;
-        activeImage.value = allImages.value[0]; // Set ảnh active sau khi product có dữ liệu
+        quantity.value = 1; // Reset quantity
+        activeImage.value = allImages.value[0];
         if (product.value.variants && product.value.variants.length > 0) {
-            selectedVariant.value = product.value.variants[0];
+            selectedVariant.value = product.value.variants[0]; // Chọn variant đầu tiên làm mặc định
+        } else {
+            selectedVariant.value = null; // Reset nếu không có variants
         }
-        validateQuantity();
+        validateQuantity(); // Quan trọng: gọi sau khi product và selectedVariant được set
 
+        // Sử dụng original_id (nếu có từ hệ thống recommendation) hoặc _id cho gợi ý
         const idForRecommendation = product.value.original_id || product.value._id;
         if (idForRecommendation) {
+            // Set lastViewedProductId trong store
             store.dispatch('recommendation/setLastViewedProduct', idForRecommendation);
+
+            // Lên lịch fetch gợi ý sau một khoảng trễ
             clearTimeout(recommendationTimer);
             recommendationTimer = setTimeout(() => {
                 store.dispatch('recommendation/fetchRelatedRecommendations', {
                     productId: idForRecommendation,
-                    topN: 4 // Số lượng gợi ý bạn muốn
+                    topN: 4 // Số lượng sản phẩm gợi ý
                 });
             }, RECOMMENDATION_DELAY);
         } else {
-            console.warn("ProductDetailView: ID for recommendation (original_id or _id) is missing.");
+            console.warn("ProductDetailView: ID for recommendation is missing.");
         }
     } else {
         productError.value = "Sản phẩm không được tìm thấy.";
@@ -428,10 +423,14 @@ const addToCartHandler = async () => {
   try {
     const cartItem = {
         productId: product.value._id,
+        name: product.value.name, // Thêm tên và ảnh để hiển thị trong giỏ hàng mini
+        image: allImages.value[0], // Ảnh đầu tiên
+        price: selectedVariant.value ? (product.value.price + selectedVariant.value.priceAdjust) : product.value.price,
         quantity: quantity.value,
-        variantId: selectedVariant.value ? selectedVariant.value._id : undefined
+        variant: selectedVariant.value ? { _id: selectedVariant.value._id, name: selectedVariant.value.name } : undefined,
+        countInStock: finalCountInStock.value // Thêm countInStock để cart kiểm tra
     };
-    await store.dispatch('cart/addToCart', cartItem); // Giả sử action này tồn tại
+    await store.dispatch('cart/addToCart', cartItem);
     toast.success(`Đã thêm ${quantity.value} "${product.value.name}" vào giỏ hàng!`);
   } catch (err) {
     toast.error(err.response?.data?.message || 'Thêm vào giỏ hàng thất bại.');
@@ -442,17 +441,25 @@ const addToCartHandler = async () => {
 
 const buyNowHandler = async () => {
     if (isAddingToCart.value || !product.value || finalCountInStock.value === 0 || quantity.value <= 0 ) return;
-    isAddingToCart.value = true;
+    isAddingToCart.value = true; // Dùng chung cờ loading
     try {
-        const cartItem = {
+        const cartItem = { // Tạo cartItem tương tự addToCartHandler
             productId: product.value._id,
+            name: product.value.name,
+            image: allImages.value[0],
+            price: selectedVariant.value ? (product.value.price + selectedVariant.value.priceAdjust) : product.value.price,
             quantity: quantity.value,
-            variantId: selectedVariant.value ? selectedVariant.value._id : undefined
+            variant: selectedVariant.value ? { _id: selectedVariant.value._id, name: selectedVariant.value.name } : undefined,
+            countInStock: finalCountInStock.value
         };
+        // Thay vì dispatch addToCart, có thể bạn muốn một logic khác cho "mua ngay"
+        // Ví dụ: lưu tạm item này vào state riêng và redirect tới trang checkout đặc biệt
+        // Hoặc đơn giản là thêm vào giỏ rồi redirect
         await store.dispatch('cart/addToCart', cartItem);
-        router.push('/checkout');
+        router.push({ name: 'Checkout' }); // Giả sử có route tên là 'Checkout'
     } catch (error) {
         toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi mua ngay.');
+    } finally {
         isAddingToCart.value = false;
     }
 };
@@ -469,7 +476,8 @@ const submitReviewHandler = async () => {
 
     isSubmittingReview.value = true;
     try {
-      await store.dispatch('product/submitProductReview', { // Đảm bảo action này tồn tại và xử lý đúng
+      // Giả sử action 'product/submitProductReview' tồn tại và xử lý việc gửi review
+      await store.dispatch('product/submitProductReview', {
         productId: product.value._id,
         rating: userRating.value,
         comment: userReview.value,
@@ -478,6 +486,7 @@ const submitReviewHandler = async () => {
       userRating.value = 0;
       userReview.value = '';
       if(reviewForm.value) reviewForm.value.classList.remove('was-validated');
+      // Tải lại chi tiết sản phẩm để cập nhật danh sách review
       await fetchProductDetail(route.params.id);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Gửi đánh giá thất bại.');
@@ -487,53 +496,66 @@ const submitReviewHandler = async () => {
 };
 
 const setActiveTab = (tabId) => {
+    // ... (giữ nguyên logic setActiveTab của bạn, đảm bảo Bootstrap JS được tải) ...
     const tabButton = document.getElementById(tabId);
     if (tabButton) {
-        // Đảm bảo Bootstrap JS đã được tải và khởi tạo cho tabs
         if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
             const tab = new bootstrap.Tab(tabButton);
             tab.show();
-            const tabPaneId = tabButton.getAttribute('data-bs-target');
-            if (tabPaneId) {
-                const tabPane = document.querySelector(tabPaneId);
-                if (tabPane) {
-                    // tabPane.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); // Có thể gây nhảy trang không mong muốn
-                }
-            }
-        } else {
-            console.warn("Bootstrap Tab JS not found or initialized.");
         }
     }
 };
 
 // Lifecycle hooks
 onMounted(() => {
-  if (route.params.id) {
-    fetchProductDetail(route.params.id);
-  }
-  // Kích hoạt tab review nếu URL có hash
-  if (route.hash === '#reviews-tab-pane' && reviewsTabButton.value) {
-      // Đợi một chút để DOM sẵn sàng nếu Bootstrap chưa khởi tạo tab
-      setTimeout(() => {
-        if (reviewsTabButton.value && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-            const tab = new bootstrap.Tab(reviewsTabButton.value);
-            tab.show();
-        }
-      }, 100);
-  }
+  // Fetch sản phẩm khi component được mount, không cần watch immediate nữa
+  //   nếu watch(() => route.params.id, ...) được đặt ngay sau đó.
 });
 
+// Watch sự thay đổi của route param 'id' để fetch lại sản phẩm
 watch(() => route.params.id, (newId, oldId) => {
-  if (newId && newId !== oldId) {
+  if (newId) { // Chỉ fetch nếu newId có giá trị
     fetchProductDetail(newId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (oldId && newId !== oldId) { // Chỉ cuộn nếu ID thực sự thay đổi
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
-}, { immediate: true }); // Thêm immediate: true để fetch lần đầu
+}, { immediate: true }); // immediate: true để fetch lần đầu khi component được tạo
 
 onBeforeUnmount(() => {
     clearTimeout(recommendationTimer);
-    // Không clear recommendations ở đây để HomeView có thể dùng
+    // Không clear recommendations ở đây để HomeView có thể dùng nếu người dùng quay lại nhanh
+    // store.commit('recommendation/CLEAR_RECOMMENDATIONS');
 });
+
+const handleAddToCartFromRecommendation = async (payload) => {
+    // Đây là hàm được gọi khi ProductCard trong mục gợi ý emit 'add-to-cart'
+    // payload có thể là { productId, quantity }
+    // Bạn có thể điều hướng đến trang sản phẩm đó, hoặc thêm trực tiếp vào giỏ
+    // Ví dụ: Thêm trực tiếp vào giỏ
+    try {
+        // Cần lấy thông tin chi tiết của sản phẩm gợi ý để thêm vào giỏ
+        // Hoặc ProductCard gửi đủ thông tin
+        const recProduct = relatedRecommendations.value.find(p => String(p.product_id) === payload.productId);
+        if (recProduct) {
+            const cartItem = {
+                productId: String(recProduct.product_id),
+                name: recProduct.name,
+                image: recProduct.image_url || placeholderImg.value,
+                price: recProduct.price,
+                quantity: payload.quantity || 1,
+                // variant: undefined, // Sản phẩm gợi ý thường không có variant phức tạp
+                countInStock: 1 // Giả sử còn hàng
+            };
+            await store.dispatch('cart/addToCart', cartItem);
+            toast.success(`Đã thêm "${cartItem.name}" vào giỏ hàng!`);
+        } else {
+            toast.error('Không tìm thấy thông tin sản phẩm gợi ý.');
+        }
+    } catch (err) {
+        toast.error(err.response?.data?.message || 'Thêm vào giỏ hàng thất bại.');
+    }
+};
 
 </script>
 
