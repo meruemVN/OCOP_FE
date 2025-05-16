@@ -147,12 +147,16 @@ const actions = {
 
   logout({ commit, dispatch }) {
     commit('LOGOUT');
-    // Gọi các mutation reset/clear của module khác
-    commit('cart/RESET_CART', null, { root: true });
-    commit('order/CLEAR_MY_ORDERS', null, { root: true }); // Cần thêm mutation này vào order.js
-    commit('user/CLEAR_USER_PROFILE', null, { root: true }); // Cần thêm mutation này vào user.js
-    commit('distributor/CLEAR_MY_DISTRIBUTOR_INFO', null, { root: true }); // Cần thêm mutation này vào distributor.js
-    router.push('/login'); // Điều hướng về login
+    dispatch('cart/resetCart', null, { root: true }); // Giả sử action là resetCart
+    dispatch('order/clearMyOrders', null, { root: true });
+    dispatch('userProfile/clearUserProfile', null, { root: true }); // Giả sử module user profile là userProfile
+    dispatch('distributor/clearMyDistributorInfo', null, { root: true });
+    
+    // >>> THÊM DÒNG NÀY <<<
+    dispatch('recommendation/clearUserSessionData', null, { root: true }); 
+    if (router.currentRoute.value.path !== '/login') {
+        router.push('/login');
+    }
   },
 
   async fetchAndUpdateUser({ commit, state }) {

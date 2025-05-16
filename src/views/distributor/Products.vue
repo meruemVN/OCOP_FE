@@ -81,7 +81,7 @@
 
     <!-- Modal thêm/sửa sản phẩm (Bootstrap 5) -->
     <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true" ref="productModalRef">
-        <div class="modal-dialog modal-lg"> {/* Tăng modal-xl nếu cần thêm không gian */}
+        <div class="modal-dialog modal-lg"> 
             <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title text-success fw-semibold" id="productModalLabel">

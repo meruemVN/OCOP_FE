@@ -1,12 +1,7 @@
-// services/api.js (Phiên bản cuối cùng khuyến nghị)
 import axios from 'axios';
 import store from '@/store'; // Import store để dispatch logout
 
-// Sử dụng biến môi trường phù hợp với công cụ build của bạn (Vue CLI hoặc Vite)
-// Ví dụ cho Vue CLI:
 const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:5000/api';
-// Ví dụ cho Vite:
-// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,

@@ -1,203 +1,239 @@
-// store/modules/product.js
-import apiClient from '@/services/api'; // Đảm bảo đường dẫn đúng
+// src/store/modules/product.js
+import apiClient from '@/services/api'; // Đảm bảo đường dẫn này đúng đến file apiClient của bạn
 
 const state = {
-  products: [], // Mảng chứa danh sách sản phẩm (ví dụ: cho trang danh sách)
-  product: null, // Chi tiết sản phẩm đang xem
-  // State cho kết quả tìm kiếm và phân trang
-  searchResults: {
-    products: [], // Mảng sản phẩm từ kết quả tìm kiếm/phân trang
+  // Dữ liệu cho danh sách sản phẩm chính trên HomeView (có lọc, sắp xếp, phân trang)
+  mainProductResults: {
+    products: [],
     page: 1,
-    pages: 1,
-    count: 0
+    pages: 0, // Tổng số trang, khởi tạo là 0
+    count: 0  // Tổng số sản phẩm, khởi tạo là 0
   },
-  loading: false, // Trạng thái loading riêng cho product module
-  error: null,   // Lỗi riêng cho product module
+  productDetail: null, // Chi tiết sản phẩm khi xem một sản phẩm cụ thể
+  loading: false,      // Trạng thái loading chung cho các action của module này
+  error: null,         // Lỗi chung cho các action của module này
+
+  // Các state khác nếu bạn có chức năng admin/seller quản lý sản phẩm trực tiếp từ frontend
+  // ví dụ: allProductsForAdmin: [],
 };
 
 const getters = {
-  allProducts: (state) => state.products,
-  productDetail: (state) => state.product,
-  // Getter cho kết quả tìm kiếm (bao gồm cả phân trang)
-  searchResults: (state) => state.searchResults,
-  // Getter cho trạng thái loading/error của module này
+  // Getters cho HomeView
+  mainProducts: (state) => state.mainProductResults.products,
+  mainPagination: (state) => ({
+    page: state.mainProductResults.page,
+    pages: state.mainProductResults.pages,
+    count: state.mainProductResults.count
+  }),
+
+  // Getter cho trang chi tiết sản phẩm
+  productDetail: (state) => state.productDetail,
+
+  // Getters cho trạng thái
   isProductLoading: (state) => state.loading,
   productError: (state) => state.error,
+
+  // Getter cho danh sách sản phẩm của nhà phân phối (nếu cần)
+  // distributorProducts: (state) => state.mainProductResults, // Tạm dùng chung cấu trúc
 };
 
 const mutations = {
-  PRODUCT_REQUEST: (state) => {
+  PRODUCT_REQUEST_START: (state) => {
     state.loading = true;
     state.error = null;
   },
-  // Mutation cho việc lấy danh sách sản phẩm chung (nếu API trả về mảng)
-  SET_PRODUCTS: (state, products) => {
-    state.products = Array.isArray(products) ? products : []; // Đảm bảo là mảng
+  PRODUCT_REQUEST_SUCCESS: (state) => { // Dùng khi request thành công nhưng không set data cụ thể
     state.loading = false;
     state.error = null;
   },
-  // Mutation cho việc lấy chi tiết sản phẩm
-  SET_PRODUCT: (state, product) => {
-    state.product = product; // product có thể là object hoặc null
-    state.loading = false;
-    state.error = null;
-  },
-  // Mutation cho kết quả tìm kiếm/phân trang
-  SET_SEARCH_RESULTS: (state, results) => {
-    // Đảm bảo results có cấu trúc đúng { products, page, pages, count }
+  SET_MAIN_PRODUCTS_RESULTS: (state, results) => {
     if (results && typeof results === 'object' && Array.isArray(results.products)) {
-      state.searchResults = results;
+      state.mainProductResults = {
+          products: results.products || [],
+          page: results.page || 1,
+          pages: results.pages || 0,
+          count: results.count || 0
+      };
     } else {
-      // Reset về mặc định nếu dữ liệu không đúng
-      state.searchResults = { products: [], page: 1, pages: 1, count: 0 };
-      console.error("SET_SEARCH_RESULTS received invalid data:", results);
+      state.mainProductResults = { products: [], page: 1, pages: 0, count: 0 };
+      // console.error("PRODUCT_STORE: SET_MAIN_PRODUCTS_RESULTS received invalid data:", results);
+    }
+    state.loading = false; // Đã có data (hoặc data rỗng hợp lệ), dừng loading
+    state.error = null; // Xóa lỗi cũ nếu thành công
+  },
+  SET_PRODUCT_DETAIL: (state, product) => {
+    state.productDetail = product; // product có thể là object hoặc null
+    state.loading = false;
+    state.error = null;
+  },
+  PRODUCT_REQUEST_FAIL: (state, errorPayload) => {
+    state.loading = false;
+    state.error = errorPayload?.error || errorPayload?.message || 'Đã xảy ra lỗi khi xử lý sản phẩm.';
+  },
+  RESET_PRODUCT_MODULE_STATE: (state) => {
+    state.mainProductResults = { products: [], page: 1, pages: 0, count: 0 };
+    state.productDetail = null;
+    state.loading = false;
+    state.error = null;
+  },
+
+  // Mutations cho chức năng quản lý sản phẩm (Admin/Distributor)
+  ADD_PRODUCT_SUCCESS: (state, newProduct) => {
+    // Tạm thời không thêm vào mainProductResults để tránh làm sai lệch hiển thị hiện tại
+    // Component quản lý sản phẩm có thể fetch lại danh sách của họ
+    state.loading = false;
+    state.error = null;
+    // Nếu bạn muốn cập nhật danh sách nào đó, ví dụ danh sách admin:
+    // state.allProductsForAdmin.unshift(newProduct);
+  },
+  UPDATE_PRODUCT_SUCCESS: (state, updatedProduct) => {
+    // Cập nhật trong mainProductResults nếu sản phẩm đó đang hiển thị
+    const indexInMain = state.mainProductResults.products.findIndex(p => p._id === updatedProduct._id);
+    if (indexInMain !== -1) {
+      state.mainProductResults.products.splice(indexInMain, 1, updatedProduct);
+    }
+    // Cập nhật trong productDetail nếu đang xem sản phẩm đó
+    if (state.productDetail && state.productDetail._id === updatedProduct._id) {
+      state.productDetail = updatedProduct;
     }
     state.loading = false;
     state.error = null;
   },
-  // Mutation thêm sản phẩm mới (sau khi admin tạo)
-  ADD_PRODUCT: (state, product) => {
-    if (product && typeof product === 'object') {
-      state.products.push(product); // Thêm vào danh sách chung
-      // Có thể cập nhật searchResults nếu cần, hoặc để user tự search lại
+  DELETE_PRODUCT_SUCCESS: (state, productId) => {
+    state.mainProductResults.products = state.mainProductResults.products.filter(p => p._id !== productId);
+    if (state.productDetail && state.productDetail._id === productId) {
+      state.productDetail = null;
     }
     state.loading = false;
-  },
-  // Mutation cập nhật sản phẩm (sau khi admin sửa)
-  UPDATE_PRODUCT: (state, updatedProduct) => {
-    if (updatedProduct && typeof updatedProduct === 'object') {
-      // Cập nhật trong danh sách products
-      const index = state.products.findIndex(p => p._id === updatedProduct._id);
-      if (index !== -1) {
-        state.products.splice(index, 1, updatedProduct);
-      }
-      // Cập nhật trong danh sách searchResults.products
-      const searchIndex = state.searchResults.products.findIndex(p => p._id === updatedProduct._id);
-       if (searchIndex !== -1) {
-         state.searchResults.products.splice(searchIndex, 1, updatedProduct);
-       }
-      // Cập nhật chi tiết sản phẩm nếu đang xem
-      if (state.product && state.product._id === updatedProduct._id) {
-        state.product = updatedProduct;
-      }
-    }
-    state.loading = false;
-  },
-  // Mutation xóa sản phẩm (sau khi admin xóa)
-  REMOVE_PRODUCT: (state, productId) => {
-    state.products = state.products.filter(p => p._id !== productId);
-    state.searchResults.products = state.searchResults.products.filter(p => p._id !== productId);
-    if (state.product && state.product._id === productId) {
-      state.product = null;
-    }
-    state.loading = false;
-  },
-  PRODUCT_ERROR: (state, error) => {
-    state.loading = false;
-    state.error = error?.response?.data?.message || error?.message || 'Lỗi xử lý sản phẩm';
+    state.error = null;
   }
 };
 
 const actions = {
-  // Lấy danh sách sản phẩm chung (ví dụ: cho trang chủ)
-  async fetchProducts({ commit }) { // Đổi tên từ getProducts để tránh trùng
-    commit('PRODUCT_REQUEST');
+  /**
+   * Lấy danh sách sản phẩm chính cho HomeView hoặc các trang danh sách khác
+   * với các bộ lọc, phân trang, sắp xếp.
+   * Backend API: GET /api/products
+   */
+  async fetchMainProducts({ commit }, paramsFromComponent = {}) {
+    commit('PRODUCT_REQUEST_START');
     try {
-      // Giả sử API này trả về trực tiếp mảng sản phẩm
-      const response = await apiClient.get('/products');
-      // Commit response.data (phải là mảng)
-      commit('SET_PRODUCTS', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi fetchProducts:", error);
-      commit('PRODUCT_ERROR', error);
-      throw error; // Ném lỗi để component xử lý
-    }
-  },
+      const apiParams = {
+        page: paramsFromComponent.pageNumber || 1,
+        per_page: paramsFromComponent.pageSize || 12, // Backend nhận per_page
+      };
+      if (paramsFromComponent.category) apiParams.category = paramsFromComponent.category;
+      if (paramsFromComponent.province) apiParams.province = paramsFromComponent.province;
+      if (paramsFromComponent.minPrice !== undefined && paramsFromComponent.minPrice !== null) apiParams.min_price = paramsFromComponent.minPrice;
+      if (paramsFromComponent.maxPrice !== undefined && paramsFromComponent.maxPrice !== null) apiParams.max_price = paramsFromComponent.maxPrice;
+      if (paramsFromComponent.sortBy) apiParams.sort_by = paramsFromComponent.sortBy;
+      if (paramsFromComponent.keyword) apiParams.keyword = paramsFromComponent.keyword;
 
-  // Lấy chi tiết sản phẩm
-  async fetchProductById({ commit }, productId) { // Đổi tên từ getProductById
-    commit('PRODUCT_REQUEST');
-    commit('SET_PRODUCT', null); // Xóa product cũ trước khi fetch
-    try {
-      const response = await apiClient.get(`/products/${productId}`);
-      // Commit response.data (phải là object sản phẩm)
-      commit('SET_PRODUCT', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi fetchProductById:", error);
-      commit('PRODUCT_ERROR', error);
-      throw error;
-    }
-  },
+      Object.keys(apiParams).forEach(key => (apiParams[key] == null || apiParams[key] === '') && delete apiParams[key]);
 
-  // Tìm kiếm/Phân trang sản phẩm
-  async searchProducts({ commit }, searchParams = {}) {
-    commit('PRODUCT_REQUEST');
-    try {
-      const queryParams = new URLSearchParams(searchParams).toString();
-      const response = await apiClient.get(`/products/search?${queryParams}`); // Endpoint tìm kiếm
+      const response = await apiClient.get('/products', { params: apiParams });
 
-      console.log('[ACTION searchProducts] API Response:', response);
-
-      // Commit response.data (phải là object { products, page, pages, count })
-      if (response.data && typeof response.data === 'object' && response.data.products) {
-        commit('SET_SEARCH_RESULTS', response.data);
-        return response.data; // Trả về cả object
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.products)) {
+        commit('SET_MAIN_PRODUCTS_RESULTS', response.data); // data = { products, page, pages, count }
+        return response.data;
       } else {
-         console.error('[ACTION searchProducts] Invalid response data structure:', response.data);
-         throw new Error('Dữ liệu tìm kiếm không đúng định dạng');
+         const errorData = { error: 'Dữ liệu sản phẩm nhận được không đúng định dạng.' };
+         commit('PRODUCT_REQUEST_FAIL', errorData);
+         throw errorData;
       }
     } catch (error) {
-      console.error("Lỗi searchProducts:", error);
-      commit('PRODUCT_ERROR', error);
-      // Commit state rỗng để tránh lỗi hiển thị
-      commit('SET_SEARCH_RESULTS', { products: [], page: 1, pages: 1, count: 0 });
-      throw error;
+      // Lỗi đã được interceptor của apiClient xử lý (nếu 401) hoặc là lỗi mạng/server
+      // error.response.data chứa payload lỗi từ backend (nếu có)
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
     }
   },
 
-  // --- Seller/Admin actions ---
-  async createProduct({ commit }, productData) {
-    commit('PRODUCT_REQUEST');
+  async fetchProductById({ commit }, productId) {
+    commit('PRODUCT_REQUEST_START');
+    commit('SET_PRODUCT_DETAIL', null); // Xóa chi tiết sản phẩm cũ
     try {
-      const response = await apiClient.post('/products', productData);
-      // Commit response.data (là object product mới)
-      commit('ADD_PRODUCT', response.data);
+      const response = await apiClient.get(`/products/${productId}`);
+      commit('SET_PRODUCT_DETAIL', response.data); // response.data là object sản phẩm
       return response.data;
     } catch (error) {
-      console.error("Lỗi createProduct:", error);
-      commit('PRODUCT_ERROR', error);
-      throw error;
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
+    }
+  },
+  
+  clearProductState({ commit }){
+      commit('RESET_PRODUCT_MODULE_STATE');
+  },
+
+  // --- Actions cho Nhà Phân Phối / Admin ---
+  async createProduct({ commit }, productData) {
+    commit('PRODUCT_REQUEST_START');
+    try {
+      const response = await apiClient.post('/products', productData); // Endpoint tạo sản phẩm
+      commit('ADD_PRODUCT_SUCCESS', response.data); // response.data là sản phẩm vừa tạo
+      return response.data;
+    } catch (error) {
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
     }
   },
 
   async updateProduct({ commit }, { productId, productData }) {
-    commit('PRODUCT_REQUEST');
+    commit('PRODUCT_REQUEST_START');
     try {
       const response = await apiClient.put(`/products/${productId}`, productData);
-      // Commit response.data (là object product đã update)
-      commit('UPDATE_PRODUCT', response.data);
+      commit('UPDATE_PRODUCT_SUCCESS', response.data); // response.data là sản phẩm đã cập nhật
       return response.data;
     } catch (error) {
-      console.error("Lỗi updateProduct:", error);
-      commit('PRODUCT_ERROR', error);
-      throw error;
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
     }
   },
 
   async deleteProduct({ commit }, productId) {
-    commit('PRODUCT_REQUEST');
+    commit('PRODUCT_REQUEST_START');
     try {
-      await apiClient.delete(`/products/${productId}`);
-      // Commit productId để xóa khỏi state
-      commit('REMOVE_PRODUCT', productId);
+      await apiClient.delete(`/products/${productId}`); // API không trả về body khi xóa thành công
+      commit('DELETE_PRODUCT_SUCCESS', productId);
+      commit('PRODUCT_REQUEST_SUCCESS'); // Chỉ để set loading=false, error=null
     } catch (error) {
-      console.error("Lỗi deleteProduct:", error);
-      commit('PRODUCT_ERROR', error);
-      throw error;
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
     }
-  }
+  },
+
+  /**
+   * Lấy danh sách sản phẩm của nhà phân phối đang đăng nhập.
+   * Backend API: GET /api/products/my-products
+   */
+  async fetchMyProducts({ commit }, paramsFromComponent = {}) {
+    commit('PRODUCT_REQUEST_START');
+    try {
+      const apiParams = {
+        page: paramsFromComponent.pageNumber || 1,
+        pageSize: paramsFromComponent.pageSize || 10, // Backend nhận pageSize ở route này
+      };
+      // console.log('[Product Store ACTION] fetchMyProducts - Calling API /products/my-products with params:', apiParams);
+      const response = await apiClient.get('/products/my-products', { params: apiParams });
+
+      if (response.data && typeof response.data === 'object' && Array.isArray(response.data.products)) {
+        // Có thể bạn muốn lưu vào một state khác, ví dụ `myProductsResults`
+        // Hoặc dùng chung `mainProductResults` nếu trang "Sản phẩm của tôi" cũng dùng chung layout hiển thị
+        // Hiện tại, tôi sẽ commit vào mainProductResults để HomeView có thể dùng tạm nếu cần
+        // nhưng lý tưởng là nên có state riêng.
+        commit('SET_MAIN_PRODUCTS_RESULTS', response.data);
+        return response.data;
+      } else {
+         const errorData = { error: 'Dữ liệu sản phẩm của bạn không đúng định dạng.' };
+         commit('PRODUCT_REQUEST_FAIL', errorData);
+         throw errorData;
+      }
+    } catch (error) {
+      commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default {

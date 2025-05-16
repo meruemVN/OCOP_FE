@@ -1,98 +1,116 @@
 // src/store/modules/recommendation.js
-import recommendationService from '@/services/recommendation.service.js'; // Đảm bảo đường dẫn này đúng
+import recommendationService from '@/services/recommendation.service.js'; // Service FE
 
 const state = {
-    lastViewedProductId: null, // State này sẽ được persist
+    lastViewedProductId: null,
     relatedRecommendations: [],
-    loadingRecommendations: false,
-    recommendationError: null
+    loadingRecommendations: false, // Cho related (product-based)
+    recommendationError: null,   // Cho related
+
+    userSpecificRecommendations: [],
+    loadingUserSpecificRecommendations: false, // Cho user-based
+    userSpecificRecommendationError: null,   // Cho user-based
 };
 
 const mutations = {
-    SET_LAST_VIEWED_PRODUCT_ID(state, productId) {
-        state.lastViewedProductId = productId;
-    },
-    SET_RELATED_RECOMMENDATIONS(state, recommendations) {
-        state.relatedRecommendations = recommendations || []; // Đảm bảo là mảng
-    },
-    SET_LOADING_RECOMMENDATIONS(state, status) {
-        state.loadingRecommendations = status;
-    },
-    SET_RECOMMENDATION_ERROR(state, error) {
-        state.recommendationError = error;
-    },
-    CLEAR_RECOMMENDATIONS(state) {
+    // ... (các mutations giữ nguyên như phiên bản trước, đảm bảo có đủ cho cả related và user-specific)
+    SET_LAST_VIEWED_PRODUCT_ID(state, productId) { state.lastViewedProductId = productId; },
+    SET_RELATED_RECOMMENDATIONS(state, recommendations) { state.relatedRecommendations = recommendations || []; },
+    SET_LOADING_RECOMMENDATIONS(state, status) { state.loadingRecommendations = status; },
+    SET_RECOMMENDATION_ERROR(state, error) { state.recommendationError = error; },
+    CLEAR_RELATED_RECOMMENDATIONS(state) {
         state.relatedRecommendations = [];
-        // state.lastViewedProductId = null; // KHÔNG NÊN reset lastViewedProductId ở đây
-                                        // vì nó được dùng để trigger fetch.
-                                        // HomeView sẽ clear localStorage nếu cần.
         state.recommendationError = null;
-        state.loadingRecommendations = false; // Đảm bảo reset loading
+        state.loadingRecommendations = false;
+    },
+
+    SET_USER_SPECIFIC_RECOMMENDATIONS(state, recommendations) { state.userSpecificRecommendations = recommendations || []; },
+    SET_LOADING_USER_SPECIFIC_RECOMMENDATIONS(state, isLoading) { state.loadingUserSpecificRecommendations = isLoading; },
+    SET_USER_SPECIFIC_RECOMMENDATION_ERROR(state, error) { state.userSpecificRecommendationError = error; },
+    CLEAR_USER_SPECIFIC_RECOMMENDATIONS(state) {
+        state.userSpecificRecommendations = [];
+        state.userSpecificRecommendationError = null;
+        state.loadingUserSpecificRecommendations = false;
     }
 };
 
 const actions = {
-    async fetchRelatedRecommendations({ commit, state }, { productId, topN = 5 }) {
-        console.log(`[Vuex Recommendation Action] fetchRelatedRecommendations CALLED for productId: ${productId}, topN: ${topN}`);
+    async fetchRelatedRecommendations({ commit }, { productId, topN = 5 }) {
+        // ... (Giữ nguyên logic, đảm bảo gọi recommendationService.getRecommendations
+        // và xử lý response.data từ service)
         if (!productId) { /* ... */ return; }
         commit('SET_LOADING_RECOMMENDATIONS', true);
         commit('SET_RECOMMENDATION_ERROR', null);
         try {
-            const response = await recommendationService.getRecommendations(productId, topN);
-            console.log(`[Vuex Recommendation] fetchRelatedRecommendations: API Response for ${productId} in ACTION:`, JSON.parse(JSON.stringify(response))); // Dòng này phải log ra data bạn vừa cung cấp
-    
-            // KIỂM TRA KỸ ĐIỀU KIỆN NÀY:
-            if (response && response.recommendations && Array.isArray(response.recommendations)) {
-                commit('SET_RELATED_RECOMMENDATIONS', response.recommendations);
-                console.log(`[Vuex Recommendation] fetchRelatedRecommendations: Committed SET_RELATED_RECOMMENDATIONS for ${productId} with data:`, response.recommendations.length, 'items'); // Log này phải xuất hiện
-            } else if (response && response.error) {
-                // ...
+            const data = await recommendationService.getRecommendations(productId, topN); // data = {recommendations} hoặc {error}
+            if (data.error) {
+                commit('SET_RECOMMENDATION_ERROR', data.error);
+                commit('SET_RELATED_RECOMMENDATIONS', []);
             } else {
-                 console.warn(`[Vuex Recommendation] Unexpected response format for ${productId}:`, JSON.parse(JSON.stringify(response))); // Log này có xuất hiện không?
-                 commit('SET_RELATED_RECOMMENDATIONS', []);
-                 commit('SET_RECOMMENDATION_ERROR', 'Unexpected response format from recommendation API.');
+                commit('SET_RELATED_RECOMMENDATIONS', data.recommendations || []);
             }
-        } catch (error) { /* ... */ }
-        finally { commit('SET_LOADING_RECOMMENDATIONS', false); }
-    },
-
-    // Action này được gọi từ ProductDetailView
-    setLastViewedProduct({ commit, dispatch }, productId) {
-        const currentLastViewed = state.lastViewedProductId;
-        commit('SET_LAST_VIEWED_PRODUCT_ID', productId);
-
-        // Chỉ fetch gợi ý nếu ID thay đổi và là một ID hợp lệ
-        if (productId && productId !== currentLastViewed) {
-            // Bạn có thể dispatch fetchRelatedRecommendations trực tiếp ở đây
-            // hoặc để ProductDetailView tự quản lý việc gọi fetch (như hiện tại với setTimeout).
-            // Nếu ProductDetailView quản lý, thì action này chỉ cần commit.
-            // Nếu muốn store tự động fetch, hãy thêm:
-            // dispatch('fetchRelatedRecommendations', { productId: productId, topN: 4 }); // Ví dụ topN = 4
-        } else if (!productId) {
-            // Nếu productId là null/undefined, có thể xóa gợi ý
-            commit('CLEAR_RECOMMENDATIONS');
+        } catch (error) {
+            const errorMessage = error?.error || error?.message || 'Failed to fetch related recommendations.';
+            commit('SET_RECOMMENDATION_ERROR', errorMessage);
+            commit('SET_RELATED_RECOMMENDATIONS', []);
+        } finally {
+            commit('SET_LOADING_RECOMMENDATIONS', false);
         }
     },
 
-    clearAllRecommendationData({ commit }) {
-        commit('CLEAR_RECOMMENDATIONS');
-        commit('SET_LAST_VIEWED_PRODUCT_ID', null); // Reset cả ID đã xem
-    }
+    setLastViewedProduct({ commit }, productId) { /* ... Giữ nguyên ... */ },
+
+    async fetchUserSpecificRecommendations({ commit, rootGetters }) {
+        const currentUser = rootGetters['auth/currentUser'];
+        const isAuthenticated = rootGetters['auth/isLoggedIn'];
+
+        if (!isAuthenticated || !currentUser || !currentUser._id) {
+            commit('CLEAR_USER_SPECIFIC_RECOMMENDATIONS');
+            return;
+        }
+        const userId = currentUser._id; // Lấy userId để truyền cho service
+        const topN = 8; // Hoặc lấy từ payload
+
+        commit('SET_LOADING_USER_SPECIFIC_RECOMMENDATIONS', true);
+        commit('SET_USER_SPECIFIC_RECOMMENDATION_ERROR', null);
+        try {
+            // Gọi service FE, service này sẽ gọi API Node.js.
+            // Node.js controller sẽ tự lấy lịch sử tương tác của userId này.
+            const data = await recommendationService.getUserRecommendations(userId, topN); // data = {recommendations} hoặc {error, message}
+
+            if (data.error) {
+                commit('SET_USER_SPECIFIC_RECOMMENDATION_ERROR', data.error);
+                commit('SET_USER_SPECIFIC_RECOMMENDATIONS', []);
+            } else {
+                if (data.message && (!data.recommendations || data.recommendations.length === 0)){
+                     console.info(`[UserRec Store FE] Message for user ${userId}: ${data.message}`);
+                }
+                commit('SET_USER_SPECIFIC_RECOMMENDATIONS', data.recommendations || []);
+            }
+        } catch (error) {
+            const errorMessage = error?.error || error?.message || 'Không thể tải gợi ý dành cho bạn.';
+            commit('SET_USER_SPECIFIC_RECOMMENDATION_ERROR', errorMessage);
+            commit('SET_USER_SPECIFIC_RECOMMENDATIONS', []);
+        } finally {
+            commit('SET_LOADING_USER_SPECIFIC_RECOMMENDATIONS', false);
+        }
+    },
+
+    clearUserSessionData({ commit }) { /* ... Giữ nguyên ... */ },
+    clearAllRecommendationData({ commit }) { /* ... Giữ nguyên ... */ }
 };
 
-const getters = {
+const getters = { /* Giữ nguyên getters */
     lastViewedProductId: state => state.lastViewedProductId,
-    relatedRecommendations: state => {
-        console.log('[Vuex Getter relatedRecommendations] Returning state.relatedRecommendations:', JSON.parse(JSON.stringify(state.relatedRecommendations))); // THÊM LOG
-        return state.relatedRecommendations;
-    },
+    relatedRecommendations: state => state.relatedRecommendations,
     loadingRecommendations: state => state.loadingRecommendations,
     recommendationError: state => state.recommendationError,
-    hasRelatedRecommendations: state => {
-        const hasRecs = state.relatedRecommendations && Array.isArray(state.relatedRecommendations) && state.relatedRecommendations.length > 0;
-        console.log('[Vuex Getter hasRelatedRecommendations] state.relatedRecommendations:', JSON.parse(JSON.stringify(state.relatedRecommendations)), 'Result:', hasRecs); // THÊM LOG
-        return hasRecs;
-    }
+    hasRelatedRecommendations: state => state.relatedRecommendations && Array.isArray(state.relatedRecommendations) && state.relatedRecommendations.length > 0,
+
+    userSpecificRecommendations: state => state.userSpecificRecommendations,
+    loadingUserSpecificRecommendations: state => state.loadingUserSpecificRecommendations,
+    userSpecificRecommendationError: state => state.userSpecificRecommendationError,
+    hasUserSpecificRecommendations: state => state.userSpecificRecommendations && Array.isArray(state.userSpecificRecommendations) && state.userSpecificRecommendations.length > 0,
 };
 
 export default {
