@@ -105,8 +105,8 @@
               <product-card :product="product" @add-to-cart="handleAddToCart" />
             </div>
           </div>
-           <div v-else class="text-center py-4 text-muted"> <!-- Fallback nếu không có gì để hiển thị trong gợi ý -->
-              <span v-if="!loadingSuggestedSectionComputed">Hãy khám phá thêm sản phẩm!</span>
+           <div v-else class="text-center py-4 text-muted">
+              <span v-if="!loadingSuggestedSectionComputed && !anySuggestionError">Hãy khám phá thêm sản phẩm!</span>
            </div>
         </section>
 
@@ -149,9 +149,8 @@
                 </div>
             </div>
              <div v-else class="text-center py-5 text-muted">
-                <p v-if="!loadingMainProducts">Không có dữ liệu sản phẩm để hiển thị.</p>
+                <p v-if="!loadingMainProducts && !mainProductsError">Không có dữ liệu sản phẩm để hiển thị.</p>
              </div>
-
 
              <nav v-if="pagination && typeof pagination.pages === 'number' && pagination.pages > 1 && !loadingMainProducts && !mainProductsError" aria-label="Product pagination" class="d-flex justify-content-center mt-5">
                 <ul class="pagination">
@@ -236,7 +235,11 @@ const hasRelatedRecommendationsFromStore = computed(() => store.getters['recomme
 const userSpecificRecommendationsFromStore = computed(() => store.getters['recommendation/userSpecificRecommendations'] || []);
 const loadingUserSpecificRecs = computed(() => store.getters['recommendation/loadingUserSpecificRecommendations']);
 const userSpecificRecsError = computed(() => store.getters['recommendation/userSpecificRecommendationError']);
-const hasUserSpecificRecs = computed(() => store.getters['recommendation/hasUserSpecificRecommendations']);
+const hasUserSpecificRecs = computed(() => {
+    const val = store.getters['recommendation/hasUserSpecificRecommendations'];
+    // console.log('[HomeView Computed] hasUserSpecificRecs:', val);
+    return val;
+});
 
 
 // --- Computed Properties ---
@@ -256,13 +259,14 @@ const mainListTitle = computed(() => {
 
 const suggestionSectionTitle = computed(() => {
   const currentUserName = currentUser.value?.name || 'bạn';
+  // console.log(`[HomeView suggestionSectionTitle CALC] Auth: ${isAuthenticated.value}, HasUserRecs: ${hasUserSpecificRecs.value}, LoadingUserRecs: ${loadingUserSpecificRecs.value}, User: ${currentUserName}`);
   if (isAuthenticated.value && hasUserSpecificRecs.value) {
     return `Dành riêng cho ${currentUserName}`;
   }
   if (lastViewedProductIdFromStore.value && hasRelatedRecommendationsFromStore.value) {
      return 'Sản phẩm tương tự đã xem';
   }
-  if (isAuthenticated.value && (loadingUserSpecificRecs.value || !hasUserSpecificRecs.value)) {
+  if (isAuthenticated.value) { // Ưu tiên title "Gợi ý" nếu đã login nhưng chưa có/đang load user recs
       return `Gợi ý cho ${currentUserName}`;
   }
   return 'Sản phẩm nổi bật';
@@ -293,12 +297,18 @@ const anySuggestionError = computed(() => {
 const noSuggestionMessage = computed(() => {
     const title = suggestionSectionTitle.value;
     if (typeof title === 'string' && (title.includes('Dành riêng cho') || title.includes('Gợi ý cho'))) {
-        return 'Chúng tôi đang tìm thêm gợi ý phù hợp. Hãy tiếp tục khám phá sản phẩm nhé!';
+        if (isAuthenticated.value && !hasUserSpecificRecs.value && !userSpecificRecsError.value && !loadingUserSpecificRecs.value) {
+            return 'Chúng tôi chưa có gợi ý nào dành riêng cho bạn lúc này. Hãy khám phá thêm sản phẩm nhé!';
+        }
+        return 'Chúng tôi đang tìm thêm gợi ý phù hợp.';
     }
     if (title === 'Sản phẩm tương tự đã xem') {
+         if (lastViewedProductIdFromStore.value && !hasRelatedRecommendationsFromStore.value && !recommendationErrorFromStore.value && !loadingRecommendationsFromStore.value) {
+            return 'Chưa có sản phẩm tương tự nào. Hãy thử xem một sản phẩm khác.';
+        }
         return 'Xem một sản phẩm để chúng tôi gợi ý các sản phẩm tương tự.';
     }
-    return 'Khám phá thêm sản phẩm để nhận được gợi ý tốt nhất!';
+    return 'Hiện chưa có sản phẩm nổi bật nào. Vui lòng quay lại sau!';
 });
 
 const mapProductDataForCard = (p) => ({
@@ -313,17 +323,35 @@ const mapProductDataForCard = (p) => ({
 
 const suggestedProductsToDisplay = computed(() => {
     const title = suggestionSectionTitle.value;
-    if (typeof title === 'string' && title.includes('Dành riêng cho') && hasUserSpecificRecs.value) {
+    // console.log(`[HomeView suggestedProductsToDisplay CALC] Title: "${title}", Auth: ${isAuthenticated.value}, HasUserRecs: ${hasUserSpecificRecs.value}, HasRelatedRecs: ${hasRelatedRecommendationsFromStore.value}`);
+
+    if (typeof title === 'string' && title.includes('Dành riêng cho') && isAuthenticated.value && hasUserSpecificRecs.value) {
+        // console.log('[HomeView suggestedProductsToDisplay] Branch: User Specific Recs (has data)');
         return (userSpecificRecommendationsFromStore.value || []).map(mapProductDataForCard);
     }
+    
+    if (typeof title === 'string' && title.includes('Gợi ý cho') && isAuthenticated.value) {
+        // console.log('[HomeView suggestedProductsToDisplay] Branch: User Specific Recs (loading or no data yet)');
+        // Nếu đang load user recs hoặc chưa có, trả về rỗng để template hiển thị loading/noSuggestionMessage
+        // Không fallback về default ở đây để ưu tiên user recs
+        return []; 
+    }
+    
     if (title === 'Sản phẩm tương tự đã xem' && hasRelatedRecommendationsFromStore.value) {
+        // console.log('[HomeView suggestedProductsToDisplay] Branch: Related Recs');
         return (relatedRecommendationsFromStore.value || []).map(mapProductDataForCard);
     }
-    if (Array.isArray(defaultSuggestedProducts.value) && defaultSuggestedProducts.value.length > 0) {
-        return defaultSuggestedProducts.value.map(mapProductDataForCard);
+    
+    if (title === 'Sản phẩm nổi bật') { // Chỉ hiển thị default nếu title là "Sản phẩm nổi bật"
+        // console.log('[HomeView suggestedProductsToDisplay] Branch: Default Suggested Products');
+        if (Array.isArray(defaultSuggestedProducts.value) && defaultSuggestedProducts.value.length > 0) {
+            return defaultSuggestedProducts.value.map(mapProductDataForCard);
+        }
     }
+    // console.log('[HomeView suggestedProductsToDisplay] Fallback to EMPTY ARRAY.');
     return [];
 });
+
 
 const pageNumbers = computed(() => {
     const currentPagination = pagination.value || { page: 1, pages: 0 };
@@ -365,10 +393,11 @@ const fetchMainProductList = async (page = 1) => {
         maxPrice: filterPrice.value.max,
         sortBy: sortBy.value
     };
-    // console.log("[HomeView] Fetching main products with params:", params);
+    Object.keys(params).forEach(key => (params[key] == null || params[key] === '') && delete params[key]);
+    // console.log("[HomeView fetchMainProductList] Dispatching product/fetchMainProducts with params:", params);
     await store.dispatch('product/fetchMainProducts', params);
   } catch (error) {
-    if(!mainProductsError.value && !error.message?.includes('aborted')) { // Bỏ qua lỗi aborted nếu có
+    if(!mainProductsError.value && !error.message?.includes('aborted')) {
         toast.error(error?.error || error?.message || "Lỗi tải sản phẩm.");
     }
   }
@@ -376,19 +405,23 @@ const fetchMainProductList = async (page = 1) => {
 
 const fetchSuggestionData = () => {
     const title = suggestionSectionTitle.value;
-    if (title.includes('Dành riêng cho') || title.includes('Gợi ý cho')) {
+    // console.log("[HomeView fetchSuggestionData] Called. Title:", title, "Auth:", isAuthenticated.value, "LoadingUserRecs:", loadingUserSpecificRecs.value, "LastViewed:", lastViewedProductIdFromStore.value, "LoadingRelated:", loadingRecommendationsFromStore.value);
+
+    if (typeof title === 'string' && (title.includes('Dành riêng cho') || title.includes('Gợi ý cho'))) {
         if (isAuthenticated.value && !loadingUserSpecificRecs.value) {
+            // console.log("[HomeView fetchSuggestionData] Dispatching: recommendation/fetchUserSpecificRecommendations");
             store.dispatch('recommendation/fetchUserSpecificRecommendations');
         }
     } else if (title === 'Sản phẩm tương tự đã xem') {
         if (lastViewedProductIdFromStore.value && !loadingRecommendationsFromStore.value) {
+            // console.log("[HomeView fetchSuggestionData] Dispatching: recommendation/fetchRelatedRecommendations for P_ID:", lastViewedProductIdFromStore.value);
             store.dispatch('recommendation/fetchRelatedRecommendations', {
-                productId: lastViewedProductIdFromStore.value,
-                topN: 8
+                productId: lastViewedProductIdFromStore.value, topN: 8
             });
         }
     } else { // Sản phẩm nổi bật
-        if (defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
+        if (!defaultSuggestedProducts.value || defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
+            // console.log("[HomeView fetchSuggestionData] Fetching default (popular) products.");
             loadingDefaultSuggested.value = true;
             store.dispatch('product/fetchMainProducts', { sortBy: 'popular', pageSize: 8 })
                 .then(result => {
@@ -403,10 +436,7 @@ const fetchSuggestionData = () => {
     }
 };
 
-const applyFiltersAndFetch = (page = 1) => {
-    fetchMainProductList(page);
-};
-
+const applyFiltersAndFetch = (page = 1) => { fetchMainProductList(page); };
 const selectCategory = (categoryName) => { selectedCategory.value = categoryName; applyFiltersAndFetch(1); };
 const selectProvince = (provinceName) => { selectedProvince.value = provinceName; applyFiltersAndFetch(1); };
 const applyPriceFilter = () => { applyFiltersAndFetch(1); };
@@ -414,19 +444,13 @@ const resetPriceFilter = () => { filterPrice.value = { min: null, max: null }; a
 const changeSort = (sortKeyName) => { sortBy.value = sortKeyName; applyFiltersAndFetch(1); };
 
 const resetAllFilters = () => {
-    selectedCategory.value = null;
-    selectedProvince.value = null;
-    filterPrice.value = { min: null, max: null };
-    sortBy.value = 'popular';
-    
+    selectedCategory.value = null; selectedProvince.value = null;
+    filterPrice.value = { min: null, max: null }; sortBy.value = 'popular';
     store.dispatch('product/clearProductState');
     applyFiltersAndFetch(1);
-    
     store.dispatch('recommendation/clearAllRecommendationData');
     defaultSuggestedProducts.value = [];
-    nextTick(() => {
-        fetchSuggestionData();
-    });
+    nextTick(fetchSuggestionData);
 };
 
 const changePage = (newPage) => {
@@ -434,9 +458,7 @@ const changePage = (newPage) => {
     if (newPage >= 1 && newPage <= currentPagination.pages && newPage !== currentPagination.page) {
         applyFiltersAndFetch(newPage);
          const productListElement = document.getElementById('productListSection');
-         if (productListElement) {
-             productListElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-         }
+         if (productListElement) productListElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 };
 const handleAddToCart = async ({ productId, quantity }) => {
@@ -450,47 +472,65 @@ const handleAddToCart = async ({ productId, quantity }) => {
 
 // --- Lifecycle Hooks & Watchers ---
 onMounted(() => {
+  // console.log("[HomeView MOUNTED] Clearing states & fetching main products...");
   store.dispatch('product/clearProductState');
   store.dispatch('recommendation/clearAllRecommendationData');
   defaultSuggestedProducts.value = [];
   fetchMainProductList();
-  // fetchSuggestionData sẽ được trigger bởi watcher khi title ổn định
+  // fetchSuggestionData sẽ được trigger bởi watcher `suggestionSectionTitle` nếu immediate:true
+  // hoặc cần gọi sau nextTick để đảm bảo title đã tính toán xong
+  nextTick(() => {
+      fetchSuggestionData();
+  });
 });
 
 watch(isAuthenticated, (loggedIn, previouslyLoggedIn) => {
   if (loggedIn !== previouslyLoggedIn) {
+    // console.log("[HomeView WATCH isAuthenticated] Auth state changed. Clearing suggestions and refetching.");
     store.dispatch('recommendation/clearAllRecommendationData');
     defaultSuggestedProducts.value = [];
-    nextTick(() => fetchSuggestionData());
+    nextTick(fetchSuggestionData);
   }
 });
 
 watch(lastViewedProductIdFromStore, (newId, oldId) => {
     if (newId && newId !== oldId) {
+        // Chỉ fetch related nếu title đang là "Sản phẩm tương tự" HOẶC user chưa đăng nhập
         if (suggestionSectionTitle.value === 'Sản phẩm tương tự đã xem' || !isAuthenticated.value) {
+            // console.log("[HomeView WATCH lastViewedProductId] Changed. Fetching related suggestions.");
             fetchSuggestionData();
         }
-    } else if (!newId && oldId) {
+    } else if (!newId && oldId) { // Last viewed ID bị xóa
         store.dispatch('recommendation/clearRelatedRecommendations');
+        // Nếu không còn lastViewed và user không login, title sẽ tự về "Sản phẩm nổi bật"
+        // watcher của title sẽ handle fetch default nếu cần
     }
 });
 
 let isFetchingSuggestionsByTitleDebounced = false;
 let titleWatcherTimeout = null;
+
 watch(suggestionSectionTitle, (newTitle, oldTitle) => {
-    if (newTitle === oldTitle || isFetchingSuggestionsByTitleDebounced || loadingSuggestedSectionComputed.value) return;
+    if (newTitle === oldTitle || isFetchingSuggestionsByTitleDebounced || loadingSuggestedSectionComputed.value) {
+      // console.log(`[HomeView WATCH suggestionSectionTitle] SKIPPED fetch. New: "${newTitle}", Old: "${oldTitle}", Debounced: ${isFetchingSuggestionsByTitleDebounced}, Loading: ${loadingSuggestedSectionComputed.value}`);
+      return;
+    }
     
+    // console.log(`[HomeView WATCH suggestionSectionTitle] Title changed: "${oldTitle}" -> "${newTitle}". Scheduling fetchSuggestionData.`);
     clearTimeout(titleWatcherTimeout);
     titleWatcherTimeout = setTimeout(() => {
-        if (!loadingSuggestedSectionComputed.value) {
+        if (!loadingSuggestedSectionComputed.value) { // Kiểm tra lại loading trước khi fetch
             isFetchingSuggestionsByTitleDebounced = true;
             fetchSuggestionData();
-            setTimeout(() => { isFetchingSuggestionsByTitleDebounced = false; }, 700); // Thời gian chờ đủ để fetch hoàn tất
+            setTimeout(() => { isFetchingSuggestionsByTitleDebounced = false; }, 700); 
+        } else {
+            // console.log(`[HomeView WATCH suggestionSectionTitle DEBOUNCED] SKIPPED fetch because still loading.`);
         }
-    }, 250); // Debounce
-}, { immediate: false });
+    }, 250); 
+}, { immediate: true }); // << Đặt immediate: true để chạy ngay khi component mount (sau onMounted)
 
 </script>
+
 
 <style scoped>
 /* CSS CỦA BANNER */

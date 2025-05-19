@@ -84,6 +84,7 @@ const loading = computed(() => store.getters['authLoading']);
 const error = computed(() => store.getters['authError']);
 
 const handleLogin = async () => {
+  console.log('[Login.vue] Attempting login with Email:', email.value, 'Password:', password.value.substring(0,3) + '...'); // Không log toàn bộ password
   if (!email.value || !password.value) return;
   try {
     await store.dispatch('auth/login', { 

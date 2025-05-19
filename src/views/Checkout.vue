@@ -59,7 +59,6 @@
                           <option value="Hà Nội">Hà Nội</option>
                           <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
                           <option value="Đà Nẵng">Đà Nẵng</option>
-                          {/* Thêm các tỉnh thành khác */}
                        </select>
                        <div class="invalid-feedback">{{ validationErrors.province }}</div>
                     </div>
@@ -73,7 +72,6 @@
                            <option v-if="shippingInfo.province === 'TP. Hồ Chí Minh'" value="Quận 3">Quận 3</option>
                            <option v-if="shippingInfo.province === 'Đà Nẵng'" value="Hải Châu">Hải Châu</option>
                            <option v-if="shippingInfo.province === 'Đà Nẵng'" value="Thanh Khê">Thanh Khê</option>
-                           {/* Thêm các quận huyện khác */}
                        </select>
                        <div class="invalid-feedback">{{ validationErrors.district }}</div>
                     </div>
@@ -83,7 +81,6 @@
                            <option value="" disabled>Chọn Phường/Xã</option>
                             <option v-if="shippingInfo.district === 'Quận 1' && shippingInfo.province === 'TP. Hồ Chí Minh'" value="Bến Nghé">Bến Nghé</option>
                             <option v-if="shippingInfo.district === 'Ba Đình' && shippingInfo.province === 'Hà Nội'" value="Điện Biên">Điện Biên</option>
-                            {/* Thêm các phường xã khác */}
                        </select>
                        <div class="invalid-feedback">{{ validationErrors.ward }}</div>
                     </div>
@@ -130,7 +127,6 @@
                            <input class="form-check-input me-3" type="radio" value="banking" v-model="selectedPaymentMethod" name="paymentMethodOption" required>
                             <i class="fas fa-university fa-fw me-2 text-secondary"></i> Chuyển khoản ngân hàng
                          </label>
-                         {/* Bỏ các phương thức chưa dùng để đơn giản hóa
                          <label class="list-group-item list-group-item-action d-flex align-items-center">
                            <input class="form-check-input me-3" type="radio" value="momo" v-model="selectedPaymentMethod" name="paymentMethodOption">
                             <i class="fas fa-wallet fa-fw me-2 text-secondary"></i> Ví MoMo
@@ -139,7 +135,6 @@
                            <input class="form-check-input me-3" type="radio" value="vnpay" v-model="selectedPaymentMethod" name="paymentMethodOption">
                             <i class="fas fa-qrcode fa-fw me-2 text-secondary"></i> VNPay
                          </label>
-                         */}
                      </div>
                      <div v-if="validationErrors.paymentMethod && formSubmitted" class="text-danger small mt-2 ps-1">{{ validationErrors.paymentMethod }}</div>
                  </div>
@@ -161,7 +156,7 @@
                 <i class="fas fa-file-invoice-dollar me-2"></i>Đơn hàng của bạn
             </h2>
             <div v-if="!processedCartItems || processedCartItems.length === 0" class="text-center text-muted py-4"> (Giỏ hàng trống) </div>
-            <div v-else class="mb-3 pb-2 border-bottom" style="max-height: 280px; overflow-y: auto;"> {/* Tăng max-height */}
+            <div v-else class="mb-3 pb-2 border-bottom" style="max-height: 280px; overflow-y: auto;"> 
                 <div v-for="item in processedCartItems" :key="item.product?._id || item.productId" class="d-flex align-items-center py-2">
                   <img :src="getProductImage(item.product)" :alt="item.product?.name" @error="onImageError" class="rounded me-3 flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover; background-color: #f8f9fa;">
                   <div class="flex-grow-1">

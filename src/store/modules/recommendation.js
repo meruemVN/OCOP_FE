@@ -77,7 +77,10 @@ const actions = {
             // Gọi service FE, service này sẽ gọi API Node.js.
             // Node.js controller sẽ tự lấy lịch sử tương tác của userId này.
             const data = await recommendationService.getUserRecommendations(userId, topN); // data = {recommendations} hoặc {error, message}
-
+            console.log('[VUEX REC ACTION fetchUserSpecific] RAW DATA FROM SERVICE:', JSON.parse(JSON.stringify(data))); 
+            // ...
+            commit('SET_USER_SPECIFIC_RECOMMENDATIONS', data.recommendations || []);
+            console.log('[VUEX REC ACTION fetchUserSpecific] Committed recommendations count:', data.recommendations ? data.recommendations.length : 0);
             if (data.error) {
                 commit('SET_USER_SPECIFIC_RECOMMENDATION_ERROR', data.error);
                 commit('SET_USER_SPECIFIC_RECOMMENDATIONS', []);
