@@ -23,6 +23,7 @@ import {
 
 // Import for regular (empty) stars (if you use them as `far fa-star`)
 import { faStar as farStar } from '@fortawesome/free-regular-svg-icons';
+import '@fortawesome/fontawesome-free/css/all.min.css'; 
 
 // If you decide to use the PayPal icon
 // import { faPaypal } from '@fortawesome/free-brands-svg-icons';

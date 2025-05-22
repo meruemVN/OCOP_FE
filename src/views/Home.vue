@@ -171,6 +171,91 @@
         </section>
       </main>
     </div>
+
+    <!-- RASA Chatbot Floating Button & Window -->
+    <div class="rasa-chat-widget">
+      <button @click="toggleChat" class="rasa-chat-button btn btn-success btn-lg rounded-circle shadow">
+        <font-awesome-icon :icon="showChat ? 'times' : 'comment-dots'" />
+      </button>
+
+      <div v-if="showChat" class="rasa-chat-window card shadow-lg">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Trợ lý OCOP</h5>
+          <button @click="toggleChat" class="btn btn-sm btn-link text-white p-0">
+            <font-awesome-icon icon="times" size="lg"/>
+          </button>
+        </div>
+        <!-- SỬA ĐỔI PHẦN HIỂN THỊ TIN NHẮN RASA -->
+        <div class="card-body rasa-chat-messages" ref="chatContainerRef">
+          <div v-for="(msg, index) in chatMessages" :key="index"
+              class="message-bubble-wrapper" 
+              :class="msg.sender === 'user' ? 'user-message-wrapper' : 'bot-message-wrapper'">
+
+            <!-- Hiển thị Text (nếu có) -->
+            <div v-if="msg.text"
+                class="message-bubble"
+                :class="msg.sender === 'user' ? 'user-message' : 'bot-message'">
+              <p class="mb-1" v-html="msg.text.replace(/\n/g, '<br>')"></p>
+            </div>
+
+            <!-- Hiển thị Image (nếu có VÀ KHÔNG PHẢI LÀ attachment) -->
+            <!-- Hoặc nếu là attachment nhưng không phải generic template -->
+            <div v-if="msg.image && (!msg.attachment || msg.attachment?.payload?.template_type !== 'generic')" 
+                class="bot-image-container mt-1">
+              <img :src="msg.image" alt="Hình ảnh từ bot" class="img-fluid rounded"/>
+            </div>
+
+            <!-- Hiển thị Attachment (Carousel - Generic Template) -->
+            <div v-if="msg.attachment && msg.attachment.type === 'template' && msg.attachment.payload && msg.attachment.payload.template_type === 'generic'"
+                class="bot-carousel-container mt-1">
+              <div class="carousel-wrapper">
+                <div v-for="(element, elIndex) in msg.attachment.payload.elements" :key="`carousel-${index}-${elIndex}`"
+                    class="carousel-card card">
+                  <img v-if="element.image_url" :src="element.image_url" class="card-img-top" alt="Hình ảnh sản phẩm">
+                  <div class="card-body">
+                    <h6 class="card-title" v-if="element.title">{{ element.title }}</h6>
+                    <p class="card-text small" v-if="element.subtitle">{{ element.subtitle }}</p>
+                    <div v-if="element.buttons && element.buttons.length > 0" class="carousel-buttons mt-auto">
+                      <button v-for="(button, btnElIndex) in element.buttons" :key="`carousel-btn-${elIndex}-${btnElIndex}`"
+                              @click="sendButtonPayload(button.payload, button.title)"
+                              class="btn btn-sm btn-outline-primary me-1 mb-1">
+                        {{ button.title }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hiển thị Buttons đơn giản (nếu có và không phải là một phần của carousel đã render ở trên) -->
+            <!-- Điều kiện: có msg.buttons VÀ (msg.attachment không phải là generic template HOẶC không có msg.attachment) -->
+            <div v-if="msg.buttons && msg.buttons.length > 0 && (!msg.attachment || msg.attachment?.payload?.template_type !== 'generic')" 
+                class="mt-2 rasa-buttons" 
+                :class="msg.sender === 'user' ? '' : 'bot-message-buttons-standalone'"> <!-- Thêm class để style nếu cần -->
+              <button v-for="(button, btnIndex) in msg.buttons" :key="`simple-btn-${index}-${btnIndex}`"
+                      @click="sendButtonPayload(button.payload, button.title)"
+                      class="btn btn-sm btn-outline-primary me-2 mb-1">
+                {{ button.title }}
+              </button>
+            </div>
+
+          </div>
+          <div v-if="isBotTyping" class="message-bubble bot-message typing-indicator">
+            <p class="mb-1"><em>Trợ lý đang gõ...</em></p>
+          </div>
+        </div>
+        <!-- KẾT THÚC SỬA ĐỔI PHẦN HIỂN THỊ TIN NHẮN RASA -->
+        <div class="card-footer rasa-chat-input-area">
+          <div class="input-group">
+            <input type="text" v-model="userInput" @keyup.enter="sendUserMessage"
+                   class="form-control" placeholder="Nhập tin nhắn..." />
+            <button @click="sendUserMessage" class="btn btn-success">
+              <font-awesome-icon icon="paper-plane" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -183,13 +268,16 @@ import { library } from '@fortawesome/fontawesome-svg-core';
 import {
     faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
     faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
-    faExclamationCircle, faStream
+    faExclamationCircle, faStream,
+    faCommentDots, faPaperPlane, faTimes // Chat icons
 } from '@fortawesome/free-solid-svg-icons';
+import axios from 'axios'; // Import axios
 
 library.add(
     faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
     faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
-    faExclamationCircle, faStream
+    faExclamationCircle, faStream,
+    faCommentDots, faPaperPlane, faTimes // Chat icons
 );
 
 const store = useStore();
@@ -237,7 +325,6 @@ const loadingUserSpecificRecs = computed(() => store.getters['recommendation/loa
 const userSpecificRecsError = computed(() => store.getters['recommendation/userSpecificRecommendationError']);
 const hasUserSpecificRecs = computed(() => {
     const val = store.getters['recommendation/hasUserSpecificRecommendations'];
-    // console.log('[HomeView Computed] hasUserSpecificRecs:', val);
     return val;
 });
 
@@ -259,14 +346,13 @@ const mainListTitle = computed(() => {
 
 const suggestionSectionTitle = computed(() => {
   const currentUserName = currentUser.value?.name || 'bạn';
-  // console.log(`[HomeView suggestionSectionTitle CALC] Auth: ${isAuthenticated.value}, HasUserRecs: ${hasUserSpecificRecs.value}, LoadingUserRecs: ${loadingUserSpecificRecs.value}, User: ${currentUserName}`);
   if (isAuthenticated.value && hasUserSpecificRecs.value) {
     return `Dành riêng cho ${currentUserName}`;
   }
   if (lastViewedProductIdFromStore.value && hasRelatedRecommendationsFromStore.value) {
      return 'Sản phẩm tương tự đã xem';
   }
-  if (isAuthenticated.value) { // Ưu tiên title "Gợi ý" nếu đã login nhưng chưa có/đang load user recs
+  if (isAuthenticated.value) {
       return `Gợi ý cho ${currentUserName}`;
   }
   return 'Sản phẩm nổi bật';
@@ -311,47 +397,50 @@ const noSuggestionMessage = computed(() => {
     return 'Hiện chưa có sản phẩm nổi bật nào. Vui lòng quay lại sau!';
 });
 
-const mapProductDataForCard = (p) => ({
-    _id: String(p._id || p.product_id),
-    name: p.name,
-    images: p.image_url ? [p.image_url] : (Array.isArray(p.images) && p.images.length > 0 ? p.images : ['/images/placeholder-image.png']),
+const mapProductDataForCard = (p) => {
+  // p có thể là sản phẩm từ /api/products (có _id là Mongo ObjectId)
+  // hoặc sản phẩm từ /api/recommendations (sau khi sửa, cũng nên có _id là Mongo ObjectId)
+  let mongoId = p._id; // Ưu tiên _id trực tiếp
+  let mainImage = '/images/placeholder-image.png';
+
+  if (Array.isArray(p.images) && p.images.length > 0) {
+    mainImage = p.images[0];
+  } else if (p.image_url) { // Fallback cho trường hợp API gợi ý trả về image_url
+    mainImage = p.image_url;
+  }
+
+  return {
+    _id: String(mongoId || p.product_id || p.original_id), // p.product_id là original_id từ gợi ý
+    name: p.name || 'N/A',
+    images: [mainImage], // Luôn trả về mảng images cho ProductCard
     price: p.price,
-    rating: p.rating || p.ocop_rating,
-    numReviews: p.numReviews || p.num_reviews || 0,
-    countInStock: p.countInStock || p.count_in_stock || 1,
-});
+    rating: p.rating || p.ocop_rating, // Lấy rating từ nhiều nguồn có thể
+    numReviews: p.numReviews || 0,
+    // Thêm các trường khác mà ProductCard cần
+    category: p.category,
+    origin: p.origin, // Nếu có
+    // original_id_debug: p.original_id || p.product_id // Để debug nếu cần
+  };
+};
 
 const suggestedProductsToDisplay = computed(() => {
     const title = suggestionSectionTitle.value;
-    // console.log(`[HomeView suggestedProductsToDisplay CALC] Title: "${title}", Auth: ${isAuthenticated.value}, HasUserRecs: ${hasUserSpecificRecs.value}, HasRelatedRecs: ${hasRelatedRecommendationsFromStore.value}`);
-
     if (typeof title === 'string' && title.includes('Dành riêng cho') && isAuthenticated.value && hasUserSpecificRecs.value) {
-        // console.log('[HomeView suggestedProductsToDisplay] Branch: User Specific Recs (has data)');
         return (userSpecificRecommendationsFromStore.value || []).map(mapProductDataForCard);
     }
-    
     if (typeof title === 'string' && title.includes('Gợi ý cho') && isAuthenticated.value) {
-        // console.log('[HomeView suggestedProductsToDisplay] Branch: User Specific Recs (loading or no data yet)');
-        // Nếu đang load user recs hoặc chưa có, trả về rỗng để template hiển thị loading/noSuggestionMessage
-        // Không fallback về default ở đây để ưu tiên user recs
-        return []; 
+        return [];
     }
-    
     if (title === 'Sản phẩm tương tự đã xem' && hasRelatedRecommendationsFromStore.value) {
-        // console.log('[HomeView suggestedProductsToDisplay] Branch: Related Recs');
         return (relatedRecommendationsFromStore.value || []).map(mapProductDataForCard);
     }
-    
-    if (title === 'Sản phẩm nổi bật') { // Chỉ hiển thị default nếu title là "Sản phẩm nổi bật"
-        // console.log('[HomeView suggestedProductsToDisplay] Branch: Default Suggested Products');
+    if (title === 'Sản phẩm nổi bật') {
         if (Array.isArray(defaultSuggestedProducts.value) && defaultSuggestedProducts.value.length > 0) {
             return defaultSuggestedProducts.value.map(mapProductDataForCard);
         }
     }
-    // console.log('[HomeView suggestedProductsToDisplay] Fallback to EMPTY ARRAY.');
     return [];
 });
-
 
 const pageNumbers = computed(() => {
     const currentPagination = pagination.value || { page: 1, pages: 0 };
@@ -366,8 +455,8 @@ const pageNumbers = computed(() => {
         if (currentPage === 1 && totalPages > 1) right = Math.min(totalPages -1, currentPage + delta);
         else if (currentPage === totalPages && totalPages > 1) left = Math.max(2, currentPage - delta);
     }
-    for (let i = left; i <= right; i++) { 
-        if (i > 1 && i < totalPages) range.push(i); 
+    for (let i = left; i <= right; i++) {
+        if (i > 1 && i < totalPages) range.push(i);
     }
     if (totalPages > 1) range.push(totalPages);
     const uniqueRange = [...new Set(range)].sort((a, b) => a - b);
@@ -394,7 +483,6 @@ const fetchMainProductList = async (page = 1) => {
         sortBy: sortBy.value
     };
     Object.keys(params).forEach(key => (params[key] == null || params[key] === '') && delete params[key]);
-    // console.log("[HomeView fetchMainProductList] Dispatching product/fetchMainProducts with params:", params);
     await store.dispatch('product/fetchMainProducts', params);
   } catch (error) {
     if(!mainProductsError.value && !error.message?.includes('aborted')) {
@@ -405,31 +493,26 @@ const fetchMainProductList = async (page = 1) => {
 
 const fetchSuggestionData = () => {
     const title = suggestionSectionTitle.value;
-    // console.log("[HomeView fetchSuggestionData] Called. Title:", title, "Auth:", isAuthenticated.value, "LoadingUserRecs:", loadingUserSpecificRecs.value, "LastViewed:", lastViewedProductIdFromStore.value, "LoadingRelated:", loadingRecommendationsFromStore.value);
-
     if (typeof title === 'string' && (title.includes('Dành riêng cho') || title.includes('Gợi ý cho'))) {
         if (isAuthenticated.value && !loadingUserSpecificRecs.value) {
-            // console.log("[HomeView fetchSuggestionData] Dispatching: recommendation/fetchUserSpecificRecommendations");
             store.dispatch('recommendation/fetchUserSpecificRecommendations');
         }
     } else if (title === 'Sản phẩm tương tự đã xem') {
         if (lastViewedProductIdFromStore.value && !loadingRecommendationsFromStore.value) {
-            // console.log("[HomeView fetchSuggestionData] Dispatching: recommendation/fetchRelatedRecommendations for P_ID:", lastViewedProductIdFromStore.value);
             store.dispatch('recommendation/fetchRelatedRecommendations', {
                 productId: lastViewedProductIdFromStore.value, topN: 8
             });
         }
     } else { // Sản phẩm nổi bật
         if (!defaultSuggestedProducts.value || defaultSuggestedProducts.value.length === 0 && !loadingDefaultSuggested.value) {
-            // console.log("[HomeView fetchSuggestionData] Fetching default (popular) products.");
             loadingDefaultSuggested.value = true;
             store.dispatch('product/fetchMainProducts', { sortBy: 'popular', pageSize: 8 })
                 .then(result => {
                     if (result && result.products) defaultSuggestedProducts.value = result.products;
                     else defaultSuggestedProducts.value = [];
                 })
-                .catch(err => { 
-                    if (!err.message?.includes('aborted')) defaultSuggestedProducts.value = []; 
+                .catch(err => {
+                    if (!err.message?.includes('aborted')) defaultSuggestedProducts.value = [];
                 })
                 .finally(() => loadingDefaultSuggested.value = false);
         }
@@ -470,15 +553,171 @@ const handleAddToCart = async ({ productId, quantity }) => {
   }
 };
 
-// --- Lifecycle Hooks & Watchers ---
+// --- RASA CHATBOT STATE ---
+const showChat = ref(false);
+const chatMessages = ref([]);
+const userInput = ref('');
+const isBotTyping = ref(false);
+const RASA_SENDER_ID = `web_user_${Date.now()}`;
+const RASA_WEBHOOK_URL = 'http://localhost:5005/webhooks/rest/webhook';
+
+// --- RASA CHATBOT METHODS ---
+const toggleChat = () => {
+  showChat.value = !showChat.value;
+  if (showChat.value && chatMessages.value.length === 0) {
+    // You can send an initial greeting if desired
+    // sendToRasa('/greet'); // Example: send an intent or payload
+  }
+};
+
+const sendUserMessage = async () => {
+  if (!userInput.value.trim()) return;
+
+  const messageText = userInput.value.trim();
+  chatMessages.value.push({ sender: 'user', text: messageText });
+  userInput.value = '';
+  isBotTyping.value = true; 
+  scrollToChatBottom();
+
+  console.log(`Sending to Rasa: Sender: ${RASA_SENDER_ID}, Message: ${messageText}`); // DEBUG
+
+  try {
+    const response = await axios.post(RASA_WEBHOOK_URL, {
+      sender: RASA_SENDER_ID,
+      message: messageText,
+    });
+
+    console.log("Raw response from Rasa (sendUserMessage):", JSON.parse(JSON.stringify(response))); // DEBUG
+    console.log("Response.data from Rasa (sendUserMessage):", JSON.parse(JSON.stringify(response.data))); // DEBUG
+
+    isBotTyping.value = false;
+    if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+      response.data.forEach(botMsg => {
+        console.log("Processing individual botMsg (array):", JSON.parse(JSON.stringify(botMsg))); // DEBUG
+        if (typeof botMsg === 'object' && botMsg !== null) {
+          chatMessages.value.push({
+            sender: 'bot',
+            text: botMsg.text || "",
+            buttons: botMsg.buttons || [],
+            image: botMsg.image || null,        
+            attachment: botMsg.attachment || null 
+          });
+        } else {
+          console.warn("Received non-object bot message (array):", botMsg);
+          chatMessages.value.push({ sender: 'bot', text: String(botMsg || "") });
+        }
+      });
+    } else if (response.data && typeof response.data === 'object' && (response.data.text || response.data.image || response.data.attachment || response.data.buttons)) {
+       console.log("Processing single object botMsg:", JSON.parse(JSON.stringify(response.data))); // DEBUG
+       chatMessages.value.push({
+          sender: 'bot',
+          text: response.data.text || "",
+          buttons: response.data.buttons || [],
+          image: response.data.image || null,      
+          attachment: response.data.attachment || null 
+       });
+    }
+    else {
+      console.warn("Unexpected response structure from Rasa or empty response data (sendUserMessage):", JSON.parse(JSON.stringify(response.data)));
+      // Có thể không cần push message lỗi ở đây nếu Rasa không trả về gì (ví dụ action không utter)
+      // Hoặc nếu muốn, có thể push một message chung chung hơn
+      // chatMessages.value.push({ sender: 'bot', text: "..." });
+    }
+  } catch (error) {
+    console.error("Error sending message to Rasa (sendUserMessage):", error);
+    isBotTyping.value = false;
+    if (error.isAxiosError && !error.response) {
+        chatMessages.value.push({ sender: 'bot', text: "Lỗi kết nối đến trợ lý. Vui lòng thử lại." });
+    } else if (error.response) {
+        chatMessages.value.push({ sender: 'bot', text: `Trợ lý gặp lỗi: ${error.response.status}. Vui lòng thử lại.` });
+    } else {
+        chatMessages.value.push({ sender: 'bot', text: "Có lỗi không xác định khi giao tiếp với trợ lý." });
+    }
+  }
+  scrollToChatBottom();
+};
+
+const sendButtonPayload = async (payload, title) => {
+  if (title) {
+    chatMessages.value.push({ sender: 'user', text: title });
+  }
+  isBotTyping.value = true; 
+  scrollToChatBottom(); 
+
+  console.log(`Sending payload to Rasa: Sender: ${RASA_SENDER_ID}, Payload: ${payload}`); // DEBUG
+
+  try {
+    const response = await axios.post(RASA_WEBHOOK_URL, {
+      sender: RASA_SENDER_ID,
+      message: payload,
+    });
+
+    console.log("Raw response from Rasa (sendButtonPayload):", JSON.parse(JSON.stringify(response))); // DEBUG
+    console.log("Response.data from Rasa (sendButtonPayload):", JSON.parse(JSON.stringify(response.data))); // DEBUG
+
+    isBotTyping.value = false;
+    if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+      response.data.forEach(botMsg => {
+        console.log("Processing individual botMsg from payload (array):", JSON.parse(JSON.stringify(botMsg))); // DEBUG
+        if (typeof botMsg === 'object' && botMsg !== null) {
+          chatMessages.value.push({
+            sender: 'bot',
+            text: botMsg.text || "",
+            buttons: botMsg.buttons || [],
+            image: botMsg.image || null,  
+            attachment: botMsg.attachment || null 
+          });
+        } else {
+          console.warn("Received non-object bot message from payload response (array):", botMsg);
+          chatMessages.value.push({ sender: 'bot', text: String(botMsg || "") });
+        }
+      });
+    } else if (response.data && typeof response.data === 'object' && (response.data.text || response.data.image || response.data.attachment || response.data.buttons)) {
+      console.log("Processing single object botMsg from payload:", JSON.parse(JSON.stringify(response.data))); // DEBUG
+       chatMessages.value.push({
+          sender: 'bot',
+          text: response.data.text || "",
+          buttons: response.data.buttons || [],
+          image: response.data.image || null, 
+          attachment: response.data.attachment || null
+       });
+    } else {
+      console.warn("Empty or unexpected response from Rasa after sending payload:", JSON.parse(JSON.stringify(response.data)));
+    }
+  } catch (error) {
+    console.error("Error sending payload to Rasa (sendButtonPayload):", error);
+    isBotTyping.value = false;
+    // Xử lý lỗi tương tự như sendUserMessage
+    if (error.isAxiosError && !error.response) {
+        chatMessages.value.push({ sender: 'bot', text: "Lỗi kết nối khi xử lý lựa chọn. Vui lòng thử lại." });
+    } else if (error.response) {
+        chatMessages.value.push({ sender: 'bot', text: `Trợ lý gặp lỗi: ${error.response.status} khi xử lý lựa chọn.` });
+    } else {
+        chatMessages.value.push({ sender: 'bot', text: "Có lỗi không xác định khi xử lý lựa chọn." });
+    }
+  }
+  scrollToChatBottom();
+};
+
+const chatContainerRef = ref(null);
+const scrollToChatBottom = () => {
+  nextTick(() => {
+    if (chatContainerRef.value) {
+      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight;
+    }
+  });
+};
+
+watch(chatMessages, () => {
+  scrollToChatBottom();
+}, { deep: true });
+
+// --- Lifecycle Hooks & Watchers (Existing) ---
 onMounted(() => {
-  // console.log("[HomeView MOUNTED] Clearing states & fetching main products...");
   store.dispatch('product/clearProductState');
   store.dispatch('recommendation/clearAllRecommendationData');
   defaultSuggestedProducts.value = [];
   fetchMainProductList();
-  // fetchSuggestionData sẽ được trigger bởi watcher `suggestionSectionTitle` nếu immediate:true
-  // hoặc cần gọi sau nextTick để đảm bảo title đã tính toán xong
   nextTick(() => {
       fetchSuggestionData();
   });
@@ -486,7 +725,6 @@ onMounted(() => {
 
 watch(isAuthenticated, (loggedIn, previouslyLoggedIn) => {
   if (loggedIn !== previouslyLoggedIn) {
-    // console.log("[HomeView WATCH isAuthenticated] Auth state changed. Clearing suggestions and refetching.");
     store.dispatch('recommendation/clearAllRecommendationData');
     defaultSuggestedProducts.value = [];
     nextTick(fetchSuggestionData);
@@ -495,15 +733,11 @@ watch(isAuthenticated, (loggedIn, previouslyLoggedIn) => {
 
 watch(lastViewedProductIdFromStore, (newId, oldId) => {
     if (newId && newId !== oldId) {
-        // Chỉ fetch related nếu title đang là "Sản phẩm tương tự" HOẶC user chưa đăng nhập
         if (suggestionSectionTitle.value === 'Sản phẩm tương tự đã xem' || !isAuthenticated.value) {
-            // console.log("[HomeView WATCH lastViewedProductId] Changed. Fetching related suggestions.");
             fetchSuggestionData();
         }
-    } else if (!newId && oldId) { // Last viewed ID bị xóa
+    } else if (!newId && oldId) {
         store.dispatch('recommendation/clearRelatedRecommendations');
-        // Nếu không còn lastViewed và user không login, title sẽ tự về "Sản phẩm nổi bật"
-        // watcher của title sẽ handle fetch default nếu cần
     }
 });
 
@@ -512,32 +746,26 @@ let titleWatcherTimeout = null;
 
 watch(suggestionSectionTitle, (newTitle, oldTitle) => {
     if (newTitle === oldTitle || isFetchingSuggestionsByTitleDebounced || loadingSuggestedSectionComputed.value) {
-      // console.log(`[HomeView WATCH suggestionSectionTitle] SKIPPED fetch. New: "${newTitle}", Old: "${oldTitle}", Debounced: ${isFetchingSuggestionsByTitleDebounced}, Loading: ${loadingSuggestedSectionComputed.value}`);
       return;
     }
-    
-    // console.log(`[HomeView WATCH suggestionSectionTitle] Title changed: "${oldTitle}" -> "${newTitle}". Scheduling fetchSuggestionData.`);
     clearTimeout(titleWatcherTimeout);
     titleWatcherTimeout = setTimeout(() => {
-        if (!loadingSuggestedSectionComputed.value) { // Kiểm tra lại loading trước khi fetch
+        if (!loadingSuggestedSectionComputed.value) {
             isFetchingSuggestionsByTitleDebounced = true;
             fetchSuggestionData();
-            setTimeout(() => { isFetchingSuggestionsByTitleDebounced = false; }, 700); 
-        } else {
-            // console.log(`[HomeView WATCH suggestionSectionTitle DEBOUNCED] SKIPPED fetch because still loading.`);
+            setTimeout(() => { isFetchingSuggestionsByTitleDebounced = false; }, 700);
         }
-    }, 250); 
-}, { immediate: true }); // << Đặt immediate: true để chạy ngay khi component mount (sau onMounted)
+    }, 250);
+}, { immediate: true });
 
 </script>
-
 
 <style scoped>
 /* CSS CỦA BANNER */
 .banner {
   position: relative;
   width: 100%;
-  min-height: 20px;
+  min-height: 20px; /* Adjusted from 250px/300px if it's too tall */
   background: linear-gradient(135deg, #198754 0%, #63d471 100%);
   color: #ffffff;
   display: flex;
@@ -547,28 +775,28 @@ watch(suggestionSectionTitle, (newTitle, oldTitle) => {
   text-align: center;
   overflow: hidden;
   border-radius: 0.5rem;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem; /* Reduced padding a bit */
   font-family: 'Arial', sans-serif;
 }
 .banner__title {
-  font-size: 2rem;
+  font-size: 2rem; /* Adjusted for better fit */
   font-weight: bold;
   margin: 0;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }
 .banner__subtitle {
-  font-size: 1.1rem;
+  font-size: 1.1rem; /* Adjusted for better fit */
   margin: 0.5rem 0 0;
   max-width: 90%;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 @media (max-width: 768px) {
-  .banner { min-height: 200px; padding: 1.5rem 10px; }
+  .banner { min-height: 200px; padding: 1.5rem 10px; } /* Adjusted from 200px */
   .banner__title { font-size: 1.6rem; }
   .banner__subtitle { font-size: 1rem; }
 }
 @media (max-width: 576px) {
-  .banner { min-height: 180px; padding: 1rem 10px; }
+  .banner { min-height: 180px; padding: 1rem 10px; } /* Adjusted from 180px */
   .banner__title { font-size: 1.4rem; }
   .banner__subtitle { font-size: 0.9rem; }
 }
@@ -661,6 +889,268 @@ watch(suggestionSectionTitle, (newTitle, oldTitle) => {
   }
   .filter-sidebar .card {
      margin-bottom: 1.5rem;
+  }
+}
+
+/* RASA CHATBOT STYLES */
+.rasa-chat-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.rasa-chat-button {
+  width: 60px;
+  height: 60px;
+  font-size: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.rasa-chat-window {
+  position: fixed;
+  bottom: 90px; /* Đảm bảo không che nút toggle */
+  right: 20px;
+  width: 370px; /* Tăng nhẹ chiều rộng */
+  max-width: calc(100vw - 40px); /* Giới hạn chiều rộng trên màn hình nhỏ */
+  height: 550px; /* Tăng nhẹ chiều cao */
+  max-height: calc(100vh - 120px); /* Giới hạn chiều cao, trừ header và input */
+  border-radius: 0.75rem; /* Bo góc lớn hơn */
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.15); /* Tăng shadow */
+}
+
+.rasa-chat-window .card-header {
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  padding: 0.75rem 1rem; /* Điều chỉnh padding */
+}
+.rasa-chat-window .card-header h5 {
+    font-size: 1.05rem; /* Giảm nhẹ font size */
+}
+
+.rasa-chat-messages {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 1rem 0.75rem; /* Điều chỉnh padding */
+  display: flex;
+  flex-direction: column;
+  /* gap: 0.75rem; Bỏ gap ở đây, xử lý margin ở message-bubble-wrapper */
+}
+.rasa-chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+.rasa-chat-messages::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.message-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 0.75rem; /* Thêm margin giữa các khối message */
+}
+.user-message-wrapper {
+  align-items: flex-end;
+}
+.bot-message-wrapper {
+  align-items: flex-start;
+}
+
+.message-bubble {
+  padding: 0.6rem 0.9rem;
+  border-radius: 1rem;
+  max-width: 85%; /* Tăng max-width */
+  word-wrap: break-word;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Thêm shadow nhẹ */
+}
+
+.message-bubble p {
+    margin-bottom: 0 !important; /* Đảm bảo không có margin thừa */
+}
+
+.user-message {
+  background-color: #007bff; /* Màu xanh dương cho user */
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.bot-message {
+  background-color: #f1f3f5; /* Màu xám nhạt cho bot */
+  color: #212529;
+  align-self: flex-start;
+  border-bottom-left-radius: 0.25rem;
+}
+
+.typing-indicator {
+  font-style: italic;
+  color: #6c757d; /* Màu xám đậm hơn */
+}
+
+.rasa-buttons {
+    align-self: flex-start; /* Căn các button theo bot message */
+    max-width: 85%; /* Giống message bubble */
+    margin-top: 0.25rem; /* Khoảng cách nhỏ với text bubble nếu có */
+}
+.rasa-buttons button {
+    font-size: 0.8rem; /* Giảm nhẹ font size button */
+    padding: 0.3rem 0.6rem;
+    border-color: #6c757d; /* Màu xám cho outline */
+    color: #495057;
+    background-color: white; /* Nền trắng */
+    margin-right: 0.5rem !important; /* Thêm !important nếu cần */
+    margin-bottom: 0.25rem !important;
+    border-radius: 0.75rem; /* Bo tròn hơn */
+}
+.rasa-buttons button:hover {
+    background-color: #e9ecef; /* Hover xám nhạt */
+    color: #212529;
+    border-color: #adb5bd;
+}
+
+.bot-image-container {
+    align-self: flex-start;
+    max-width: 85%;
+    margin-top: 0.25rem; /* Nếu text ở trên */
+    background-color: #f1f3f5; /* Nền giống bot message */
+    padding: 5px; /* Padding nhỏ quanh ảnh */
+    border-radius: 1rem;
+    border-bottom-left-radius: 0.25rem;
+}
+.bot-image-container img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain; /* Giữ tỷ lệ ảnh */
+  border-radius: calc(1rem - 5px); /* Bo góc trong */
+}
+
+.bot-carousel-container {
+  width: 100%;
+  max-width: 330px; /* Điều chỉnh để vừa với cửa sổ chat */
+  align-self: flex-start;
+  margin-top: 0.25rem; /* Nếu text ở trên */
+}
+
+.carousel-wrapper {
+  display: flex;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  gap: 8px; /* Giảm gap */
+}
+
+.carousel-card {
+  min-width: 180px; /* Giảm chiều rộng card */
+  max-width: 220px;
+  flex-shrink: 0;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem; /* Bo góc card */
+  background-color: white;
+  display: flex; /* Cho phép card body co giãn */
+  flex-direction: column; /* Sắp xếp nội dung theo chiều dọc */
+}
+.carousel-card .card-img-top {
+  height: 100px; /* Giảm chiều cao ảnh */
+  object-fit: cover;
+  border-top-left-radius: calc(0.5rem - 1px); /* Bo góc theo card */
+  border-top-right-radius: calc(0.5rem - 1px);
+}
+.carousel-card .card-body {
+  padding: 0.6rem; /* Giảm padding body */
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* Cho phép card body chiếm không gian */
+}
+.carousel-card .card-title {
+  font-size: 0.85rem;
+  font-weight: 600; /* Đậm hơn */
+  margin-bottom: 0.2rem;
+  color: #343a40;
+  /* Giới hạn số dòng cho title */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.5em; /* Đảm bảo không gian cho 2 dòng title */
+}
+.carousel-card .card-text {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-bottom: 0.4rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-grow: 1; /* Đẩy buttons xuống dưới */
+}
+.carousel-buttons {
+    margin-top: auto; /* Đẩy buttons xuống cuối card-body */
+    padding-top: 0.4rem; /* Khoảng cách với text */
+    border-top: 1px solid #f1f1f1; /* Đường kẻ nhẹ */
+    width: 100%;
+}
+.carousel-buttons button {
+  font-size: 0.7rem !important;
+  padding: 0.25rem 0.5rem !important; /* Padding nhỏ hơn cho button trong carousel */
+  width: 100%; /* Button chiếm hết chiều rộng */
+  margin-bottom: 0.25rem !important; /* Khoảng cách giữa các button nếu có nhiều */
+}
+.carousel-buttons button:last-child {
+    margin-bottom: 0 !important;
+}
+
+
+.rasa-chat-input-area {
+  padding: 0.75rem;
+  border-top: 1px solid #e0e0e0; /* Đường kẻ rõ hơn */
+  background-color: #f8f9fa; /* Nền nhẹ cho input area */
+}
+.rasa-chat-input-area .form-control {
+    font-size: 0.9rem;
+    border-right: none; /* Bỏ border phải của input */
+    border-top-left-radius: 1rem; /* Bo góc input */
+    border-bottom-left-radius: 1rem;
+}
+.rasa-chat-input-area .form-control:focus {
+    box-shadow: none;
+    border-color: #198754;
+}
+.rasa-chat-input-area .btn {
+    font-size: 0.9rem;
+    border-top-right-radius: 1rem; /* Bo góc button */
+    border-bottom-right-radius: 1rem;
+    border-left: none; /* Bỏ border trái của button */
+}
+
+
+@media (max-width: 576px) {
+  .rasa-chat-window {
+    width: calc(100vw - 30px); /* Gần full width hơn */
+    max-width: none;
+    height: calc(100vh - 80px); 
+    max-height: none;
+    bottom: 70px; 
+    right: 15px;
+    left: 15px;
+    border-radius: 0.5rem; /* Giảm bo góc trên mobile */
+  }
+  .rasa-chat-button {
+    bottom: 15px;
+    right: 15px;
+    width: 55px;
+    height: 55px;
+  }
+  .carousel-card {
+    min-width: 160px; /* Card nhỏ hơn nữa trên mobile */
   }
 }
 </style>
