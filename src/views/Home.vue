@@ -87,7 +87,7 @@
         <!-- Gợi ý cho bạn Section -->
         <section class="mb-5 suggested-section">
           <h3 class="mb-3 fw-bold text-success">
-             <i class="fas fa-lightbulb me-2 text-warning"></i>
+             <i class=""></i>
              {{ suggestionSectionTitle }}
           </h3>
            <div v-if="loadingSuggestedSectionComputed" class="text-center py-4">
@@ -114,7 +114,7 @@
         <section>
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-3">
                 <h3 class="mb-2 mb-sm-0 fw-bold text-success">
-                    <i class="fas fa-leaf me-2"></i>Sản phẩm {{ mainListTitle }}
+                    <i class=""></i>Sản phẩm {{ mainListTitle }}
                 </h3>
                 <div class="btn-group btn-group-sm sort-options" role="group" aria-label="Sắp xếp sản phẩm">
                     <button type="button" class="btn" :class="sortBy === 'popular' ? 'btn-success' : 'btn-outline-secondary'" @click="changeSort('popular')">Phổ biến</button>
