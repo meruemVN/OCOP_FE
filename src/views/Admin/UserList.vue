@@ -149,102 +149,111 @@
   </template>
   
   <script setup>
-  import { ref, computed, onMounted } from 'vue';
-  import { useStore } from 'vuex';
-  import { useRouter, useRoute } from 'vue-router';
-  import { useToast } from 'vue-toastification';
-  // Import icons
-  import { library } from '@fortawesome/fontawesome-svg-core';
-  import { faUsersCog, faUserPlus, faEdit, faTrash, faUser, faUsersSlash, faCheck, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-  
-  library.add(faUsersCog, faUserPlus, faEdit, faTrash, faUser, faUsersSlash, faCheck, faExclamationTriangle);
-  
-  
-  const store = useStore();
-  const router = useRouter();
-  const route = useRoute();
-  const toast = useToast();
-  
-  // --- Computed Properties from Store ---
-  const users = computed(() => store.getters['admin/allUsers'] || []);
-  // Giả sử có getter pagination cho user
-  const userPagination = computed(() => store.getters['admin/userPagination'] || { page: 1, pages: 1 });
-  const isLoading = computed(() => store.getters['admin/isLoadingUsers']);
-  const error = computed(() => store.getters['admin/adminError']);
-  
-  // --- Methods ---
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
-  };
-  
-  const getRoleClass = (role) => {
-     const classMap = {
-        'admin': 'bg-danger text-white',
-        'distributor': 'bg-primary text-white',
-        'user': 'bg-success text-white',
-     };
-     return classMap[role] || 'bg-secondary text-white';
-  };
-  
-  const getRoleText = (role) => {
-     const roleMap = {
-        'admin': 'Admin',
-        'distributor': 'NPP', // Viết tắt
-        'user': 'User',
-     };
-     return roleMap[role] || 'N/A';
-  };
-  
-  const loadUsers = async (page = 1) => {
-      try {
-          await store.dispatch('admin/fetchUsers', { page });
-      } catch (err) {
-          console.error("Component failed to load users.");
-      }
-  };
-  
-  const confirmDeleteUser = async (user) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa người dùng "${user.name}" (${user.email})?`)) {
-      try {
-        await store.dispatch('admin/deleteUser', user._id);
-        toast.success(`Đã xóa người dùng "${user.name}".`);
-        // Dữ liệu tự cập nhật do mutation
-      } catch (err) {
-         toast.error(err.response?.data?.message || 'Không thể xóa người dùng.');
-      }
-    }
-  };
-  
-  const approveRequest = async (userId) => {
-      if (confirm('Phê duyệt yêu cầu làm nhà phân phối cho người dùng này?')) {
-          try {
-              await store.dispatch('admin/manageDistributorRequest', { userId, status: 'approved' });
-               toast.success('Đã phê duyệt yêu cầu.');
-               // Dữ liệu tự cập nhật do mutation
-          } catch(err) {
-              toast.error(err.response?.data?.message || 'Lỗi phê duyệt yêu cầu.');
-          }
-      }
-  };
-  
-  
-  // Xử lý chuyển trang user
-  const changeUserPage = (newPage) => {
-      if (newPage >= 1 && newPage <= userPagination.value.pages && newPage !== userPagination.value.page) {
-          loadUsers(newPage);
-           // router.push({ query: { page: newPage } }) // Cập nhật URL nếu muốn
-      }
-  };
-  
-  // --- Lifecycle Hook ---
-  onMounted(() => {
-     const pageFromQuery = parseInt(route.query.page) || 1;
-    loadUsers(pageFromQuery);
+import { ref, onMounted } from 'vue';
+// Giả sử bạn có một apiClient đã cấu hình (ví dụ: sử dụng axios)
+// import apiClient from '@/services/apiClient'; // Bỏ comment và thay thế bằng apiClient thực tế của bạn
+
+// --- Reactive State ---
+const stats = ref({
+  totalOrders: 0,
+  totalUsers: 0,
+  totalProducts: 0,
+  totalRevenue: 0,
+});
+const recentOrders = ref([]);
+const loadingRecentOrders = ref(true);
+
+// ... (các state khác cho products, users, distributor requests nếu có)
+
+// --- Helper Functions (giữ nguyên như trước) ---
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
   });
-  
-  </script>
+};
+
+const getStatusText = (status) => {
+  const statusMap = {
+    pending: 'Chờ xử lý',
+    processing: 'Đang xử lý', // Thêm 'processing' nếu có
+    shipped: 'Đã gửi hàng',
+    delivered: 'Đã giao',
+    cancelled: 'Đã hủy',
+    failed: 'Thất bại'
+  };
+  return statusMap[status] || status.charAt(0).toUpperCase() + status.slice(1); // Fallback
+};
+
+const getStatusBadgeClass = (status) => {
+  const classMap = {
+    pending: 'bg-secondary',
+    processing: 'bg-warning text-dark',
+    shipped: 'bg-info text-dark',
+    delivered: 'bg-success',
+    cancelled: 'bg-danger',
+    failed: 'bg-danger'
+  };
+  return classMap[status] || 'bg-light text-dark';
+};
+
+// ... (các helper functions khác giữ nguyên)
+
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  // Fetch dashboard statistics
+  try {
+    // THAY THẾ BẰNG API CALL THỰC TẾ
+    // const statsResponse = await apiClient.get('/api/admin/stats');
+    // stats.value = statsResponse.data;
+
+    // Dữ liệu giả để test UI (XÓA KHI CÓ API THẬT)
+    stats.value = { totalOrders: 8, totalUsers: 957, totalProducts: 1679, totalRevenue: 12345000 };
+    // ---
+  } catch (error) {
+    console.error("Lỗi tải thống kê dashboard:", error);
+    // Xử lý lỗi (ví dụ: hiển thị thông báo)
+  }
+
+  // Fetch recent orders (sử dụng /api/admin/orders từ adminController.js)
+  try {
+    loadingRecentOrders.value = true;
+    // THAY THẾ BẰNG API CALL THỰC TẾ
+    // const response = await apiClient.get('/api/admin/orders?page=1&limit=5'); // Lấy 5 đơn hàng gần nhất
+    // recentOrders.value = response.data.orders;
+
+    // Dữ liệu giả để test UI (XÓA KHI CÓ API THẬT)
+    // Giả sử có 8 đơn hàng như stats.totalOrders
+    if (stats.value.totalOrders > 0) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Giả lập độ trễ mạng
+        recentOrders.value = [
+            { _id: '605c724f1c9d440000d0c1a1', user: { _id: 'user1', name: 'Nguyễn Văn An', email: 'an.nv@example.com' }, createdAt: new Date().toISOString(), totalPrice: 1250000, status: 'processing' },
+            { _id: '605c724f1c9d440000d0c1a2', user: { _id: 'user2', name: 'Trần Thị Bình', email: 'binh.tt@example.com' }, createdAt: new Date(Date.now() - 86400000).toISOString(), totalPrice: 800000, status: 'delivered' },
+            { _id: '605c724f1c9d440000d0c1a3', user: { _id: 'user3', name: 'Lê Văn Cường', email: 'cuong.lv@example.com' }, createdAt: new Date(Date.now() - 172800000).toISOString(), totalPrice: 2500000, status: 'shipped' },
+            { _id: '605c724f1c9d440000d0c1a4', user: { _id: 'user4', name: 'Phạm Thị Dung', email: 'dung.pt@example.com' }, createdAt: new Date(Date.now() - 259200000).toISOString(), totalPrice: 500000, status: 'pending' },
+            { _id: '605c724f1c9d440000d0c1a5', user: { _id: 'user5', name: 'Hoàng Văn Em', email: 'em.hv@example.com' }, createdAt: new Date(Date.now() - 345600000).toISOString(), totalPrice: 1750000, status: 'cancelled' },
+        ]; // Hiển thị 5 đơn hàng giả
+    } else {
+        recentOrders.value = [];
+    }
+    // ---
+  } catch (error) {
+    console.error("Lỗi tải đơn hàng gần đây:", error);
+    recentOrders.value = []; // Đảm bảo mảng rỗng nếu có lỗi
+  } finally {
+    loadingRecentOrders.value = false;
+  }
+
+  // TODO: Fetch data cho các section khác (products, users, ...) nếu cần
+  // ...
+});
+
+</script>
   
   <style scoped>
   .table th, .table td {

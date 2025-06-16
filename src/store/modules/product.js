@@ -115,35 +115,47 @@ const actions = {
    * với các bộ lọc, phân trang, sắp xếp.
    * Backend API: GET /api/products
    */
-  async fetchMainProducts({ commit }, paramsFromComponent = {}) {
+  async fetchMainProducts({ commit, state }, paramsFromComponent = {}) { // paramsFromComponent là object đã được chuẩn bị từ HomePage.vue
     commit('PRODUCT_REQUEST_START');
+    // GHI ĐÈ CONTROLLER NẾU CÓ ĐỂ ABORT REQUEST CŨ
+    // (Bỏ qua phần này nếu bạn không dùng AbortController trong state)
+    // if (state.productController) {
+    //   state.productController.abort();
+    // }
+    // const controller = new AbortController();
+    // commit('SET_PRODUCT_CONTROLLER', controller); // Cần mutation SET_PRODUCT_CONTROLLER
+
     try {
-      const apiParams = {
-        page: paramsFromComponent.pageNumber || 1,
-        per_page: paramsFromComponent.pageSize || 12, // Backend nhận per_page
+      // SỬ DỤNG TRỰC TIẾP paramsFromComponent ĐÃ ĐƯỢC CHUẨN BỊ KỸ LƯỠNG TỪ COMPONENT
+      // Component HomePage.vue đã xử lý việc thêm/bỏ page, per_page, keyword
+      // và đã đặt tên các key đúng như backend mong đợi (ví dụ: origin, sort_by, per_page).
+
+      // Chỉ cần đảm bảo các giá trị mặc định nếu paramsFromComponent rỗng hoặc thiếu
+      const finalApiParams = {
+        page: 1,       // Mặc định page 1
+        per_page: 12,  // Mặc định 12 items (hoặc PAGE_SIZE từ component nếu bạn muốn truyền nó vào đây)
+        ...paramsFromComponent // Ghi đè giá trị mặc định bằng các giá trị từ component
       };
-      if (paramsFromComponent.category) apiParams.category = paramsFromComponent.category;
-      if (paramsFromComponent.province) apiParams.province = paramsFromComponent.province;
-      if (paramsFromComponent.minPrice !== undefined && paramsFromComponent.minPrice !== null) apiParams.min_price = paramsFromComponent.minPrice;
-      if (paramsFromComponent.maxPrice !== undefined && paramsFromComponent.maxPrice !== null) apiParams.max_price = paramsFromComponent.maxPrice;
-      if (paramsFromComponent.sortBy) apiParams.sort_by = paramsFromComponent.sortBy;
-      if (paramsFromComponent.keyword) apiParams.keyword = paramsFromComponent.keyword;
 
-      Object.keys(apiParams).forEach(key => (apiParams[key] == null || apiParams[key] === '') && delete apiParams[key]);
+      // Xóa các key null/undefined/rỗng từ finalApiParams
+      Object.keys(finalApiParams).forEach(key => (finalApiParams[key] == null || finalApiParams[key] === '') && delete finalApiParams[key]);
 
-      const response = await apiClient.get('/products', { params: apiParams });
+      console.log("Vuex Action - Sending to API with finalApiParams:", JSON.stringify(finalApiParams));
+
+      const response = await apiClient.get('/products', {
+        params: finalApiParams,
+        // signal: controller.signal, // Nếu dùng AbortController
+      });
 
       if (response.data && typeof response.data === 'object' && Array.isArray(response.data.products)) {
-        commit('SET_MAIN_PRODUCTS_RESULTS', response.data); // data = { products, page, pages, count }
+        commit('SET_MAIN_PRODUCTS_RESULTS', response.data);
         return response.data;
       } else {
-         const errorData = { error: 'Dữ liệu sản phẩm nhận được không đúng định dạng.' };
-         commit('PRODUCT_REQUEST_FAIL', errorData);
-         throw errorData;
+        const errorData = { error: 'Dữ liệu sản phẩm nhận được không đúng định dạng.' };
+        commit('PRODUCT_REQUEST_FAIL', errorData);
+        throw errorData;
       }
     } catch (error) {
-      // Lỗi đã được interceptor của apiClient xử lý (nếu 401) hoặc là lỗi mạng/server
-      // error.response.data chứa payload lỗi từ backend (nếu có)
       commit('PRODUCT_REQUEST_FAIL', error.response?.data || error);
       throw error.response?.data || error;
     }

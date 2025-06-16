@@ -2,270 +2,331 @@
 import apiClient from '@/services/api'; // Đảm bảo đường dẫn đúng
 
 const state = {
-  // State cho các dữ liệu admin cần quản lý
+  // --- Dữ liệu trang list đầy đủ ---
   users: [],
+  usersPagination: { page: 1, pages: 1, count: 0, limit: 10 },
   products: [],
-  orders: [],
-  distributorRequests: [], // <<< State cho yêu cầu NPP
-  dashboardStats: {
-      totalOrders: 0,
-      totalUsers: 0,
-      totalProducts: 0,
-      totalRevenue: 0,
-  },
-  // State loading riêng biệt
+  productsPagination: { page: 1, pages: 1, count: 0, limit: 10 },
+  orders: { orders: [], page: 1, pages: 1, count: 0, limit: 10 },
+  distributorRequests: { users: [], page: 1, pages: 1, count: 0, limit: 10 },
+
+  // --- Dữ liệu Dashboard ---
+  dashboardStats: { totalOrders: 0, totalUsers: 0, totalProducts: 0, totalRevenue: 0 },
+  recentOrdersDashboard: [],
+  recentProductsDashboard: [],
+  recentUsersDashboard: [],
+  pendingDistributorRequestsDashboard: [],
+
+  // --- Loading state cho list pages ---
   loadingUsers: false,
   loadingProducts: false,
   loadingOrders: false,
-  loadingStats: false,
-  loadingDistributorRequests: false, // <<< Loading cho yêu cầu NPP
-  error: null, // Lỗi chung cho module admin
+  loadingDistributorRequests: false,
+
+  // --- Loading state cho Dashboard ---
+  loadingStatsDashboard: false,
+  loadingRecentOrdersDashboard: false,
+  loadingRecentProductsDashboard: false,
+  loadingRecentUsersDashboard: false,
+  loadingPendingDistributorRequestsDashboard: false,
+
+  // --- Lỗi chung ---
+  error: null,
 };
 
 const getters = {
-  // Getters cho dữ liệu admin
-  allUsers: (state) => state.users,
-  allProducts: (state) => state.products,
-  allOrders: (state) => state.orders,
-  distributorRequests: (state) => state.distributorRequests || [], // <<< Getter cho yêu cầu NPP
-  dashboardStats: (state) => state.dashboardStats,
-  // Getters cho trạng thái loading
-  isLoadingUsers: (state) => state.loadingUsers,
-  isLoadingProducts: (state) => state.loadingProducts,
-  isLoadingOrders: (state) => state.loadingOrders,
-  isLoadingStats: (state) => state.loadingStats,
-  isLoadingDistributorRequests: (state) => state.loadingDistributorRequests, // <<< Getter loading yêu cầu NPP
-  adminError: (state) => state.error,
+  // List pages
+  allUsers: (s) => s.users,
+  usersPaginationInfo: (s) => s.usersPagination,
+  allProducts: (s) => s.products,
+  productsPaginationInfo: (s) => s.productsPagination,
+  allOrdersList: (s) => s.orders.orders,
+  allOrdersPagination: (s) => ({
+    page: s.orders.page,
+    pages: s.orders.pages,
+    count: s.orders.count,
+    limit: s.orders.limit
+  }),
+  allDistributorRequests: (s) => s.distributorRequests.users,
+  distributorRequestsPaginationInfo: (s) => ({
+    page: s.distributorRequests.page,
+    pages: s.distributorRequests.pages,
+    count: s.distributorRequests.count,
+    limit: s.distributorRequests.limit
+  }),
+
+  // Dashboard data
+  dashboardStats: (s) => s.dashboardStats,
+  recentOrdersDashboard: (s) => s.recentOrdersDashboard,
+  recentProductsDashboard: (s) => s.recentProductsDashboard,
+  recentUsersDashboard: (s) => s.recentUsersDashboard,
+  pendingDistributorRequestsDashboard: (s) => s.pendingDistributorRequestsDashboard,
+
+  // Loading (list)
+  isLoadingUsers: (s) => s.loadingUsers,
+  isLoadingProducts: (s) => s.loadingProducts,
+  isLoadingOrders: (s) => s.loadingOrders,
+  isLoadingDistributorRequests: (s) => s.loadingDistributorRequests,
+
+  // Loading (Dashboard)
+  isLoadingStats: (s) => s.loadingStatsDashboard,
+  isLoadingRecentOrdersDashboard: (s) => s.loadingRecentOrdersDashboard,
+  isLoadingRecentProductsDashboard: (s) => s.loadingRecentProductsDashboard,
+  isLoadingRecentUsersDashboard: (s) => s.loadingRecentUsersDashboard,
+  isLoadingPendingDistributorRequestsDashboard: (s) => s.loadingPendingDistributorRequestsDashboard,
+
+  adminError: (s) => s.error,
 };
 
 const mutations = {
-  // Mutations cho Users
-  ADMIN_USERS_REQUEST: (state) => { state.loadingUsers = true; state.error = null; },
-  SET_ADMIN_USERS: (state, users) => { state.users = Array.isArray(users) ? users : []; state.loadingUsers = false; },
-  UPDATE_ADMIN_USER: (state, updatedUser) => {
-      if (updatedUser && typeof updatedUser === 'object') {
-          const index = state.users.findIndex(u => u._id === updatedUser._id);
-          if (index !== -1) {
-              state.users.splice(index, 1, updatedUser);
-          } else {
-              // Optionally add if not found, though update implies it exists
-              // state.users.push(updatedUser);
-          }
-      }
-       // Không reset loading ở đây vì có thể được gọi từ action khác
+  // generic
+  REQUEST_INITIATED(state, loadingKey) {
+    if (loadingKey in state) state[loadingKey] = true;
+    state.error = null;
   },
-  REMOVE_ADMIN_USER: (state, userId) => {
-      state.users = state.users.filter(u => u._id !== userId);
-      // Không reset loading ở đây
-   },
+  REQUEST_COMPLETED(state, loadingKey) {
+    if (loadingKey in state) state[loadingKey] = false;
+  },
+  REQUEST_FAILURE(state, { loadingKey, error }) {
+    if (loadingKey in state) state[loadingKey] = false;
+    state.error = error?.response?.data?.message || error?.message || 'Có lỗi xảy ra';
+  },
 
-  // Mutations cho Products
-  ADMIN_PRODUCTS_REQUEST: (state) => { state.loadingProducts = true; state.error = null; },
-  SET_ADMIN_PRODUCTS: (state, products) => { state.products = Array.isArray(products) ? products : []; state.loadingProducts = false; },
-  // ... mutations update/remove product ...
+  // List pages
+  SET_ADMIN_USERS(state, payload) {
+    state.users = payload.users || payload.data || [];
+    state.usersPagination = {
+      page: payload.page, pages: payload.pages, count: payload.count, limit: payload.limit
+    };
+  },
+  SET_ADMIN_PRODUCTS(state, payload) {
+    state.products = payload.products || payload.data || [];
+    state.productsPagination = {
+      page: payload.page, pages: payload.pages, count: payload.count, limit: payload.limit
+    };
+  },
+  SET_ADMIN_ORDERS(state, payload) {
+    state.orders = {
+      orders: payload.orders || [],
+      page: payload.page, pages: payload.pages, count: payload.count, limit: payload.limit
+    };
+  },
+  SET_ADMIN_DISTRIBUTOR_REQUESTS(state, payload) {
+    state.distributorRequests = {
+      users: payload.users || payload.data || [],
+      page: payload.page, pages: payload.pages, count: payload.count, limit: payload.limit
+    };
+  },
 
-   // Mutations cho Orders
-   ADMIN_ORDERS_REQUEST: (state) => { state.loadingOrders = true; state.error = null; },
-   SET_ADMIN_ORDERS: (state, orders) => { state.orders = Array.isArray(orders) ? orders : []; state.loadingOrders = false; },
-   // ... mutations update order status ...
+  // Dashboard
+  SET_DASHBOARD_STATS(state, data) {
+    state.dashboardStats = { ...state.dashboardStats, ...data };
+  },
+  SET_RECENT_ORDERS_DASHBOARD(state, list) {
+    state.recentOrdersDashboard = list || [];
+  },
+  SET_RECENT_PRODUCTS_DASHBOARD(state, list) {
+    state.recentProductsDashboard = list || [];
+  },
+  SET_RECENT_USERS_DASHBOARD(state, list) {
+    state.recentUsersDashboard = list || [];
+  },
+  SET_PENDING_DISTR_REQ_DASHBOARD(state, list) {
+    state.pendingDistributorRequestsDashboard = list || [];
+  },
 
-   // Mutations cho Stats
-   ADMIN_STATS_REQUEST: (state) => { state.loadingStats = true; state.error = null; },
-   SET_ADMIN_STATS: (state, statsData) => { if (statsData) state.dashboardStats = { ...state.dashboardStats, ...statsData }; state.loadingStats = false; },
-
-   // >>> Mutations cho Distributor Requests <<<
-   ADMIN_DISTR_REQ_REQUEST: (state) => { state.loadingDistributorRequests = true; state.error = null; },
-   SET_ADMIN_DISTRIBUTOR_REQUESTS: (state, requests) => { // <<== TÊN ĐÚNG
-        console.log('[MUTATION admin/SET_ADMIN_DISTRIBUTOR_REQUESTS] Received requests:', requests);
-        state.distributorRequests = Array.isArray(requests) ? requests : [];
-        state.loadingDistributorRequests = false;
-        state.error = null;
-        console.log('[MUTATION admin/SET_ADMIN_DISTRIBUTOR_REQUESTS] State updated:', state.distributorRequests);
-    },
-    UPDATE_ADMIN_DISTRIBUTOR_REQUEST: (state, updatedUser) => { // <<== TÊN ĐÚNG
-        console.log('[MUTATION admin/UPDATE_ADMIN_DISTRIBUTOR_REQUEST] Received user:', updatedUser);
-        if (updatedUser && typeof updatedUser === 'object') {
-            const index = state.distributorRequests.findIndex(req => req._id === updatedUser._id);
-            if (index !== -1) {
-                state.distributorRequests.splice(index, 1, updatedUser);
-                console.log('[MUTATION admin/UPDATE_ADMIN_DISTRIBUTOR_REQUEST] Request updated in list.');
-            } else {
-                console.log('[MUTATION admin/UPDATE_ADMIN_DISTRIBUTOR_REQUEST] User not found in requests list.');
-            }
-        }
-         // Không reset loading ở đây vì action cha sẽ làm
-    },
-    // Optional: Mutation để xóa request sau khi xử lý
-    REMOVE_ADMIN_DISTRIBUTOR_REQUEST: (state, userId) => {
-        state.distributorRequests = state.distributorRequests.filter(req => req._id !== userId);
-         console.log(`[MUTATION admin/REMOVE_ADMIN_DISTRIBUTOR_REQUEST] Removed request for user ${userId}`);
-    },
-
-  // Mutation lỗi chung
-  ADMIN_ERROR: (state, error) => {
-    state.error = error?.response?.data?.message || error?.message || 'Lỗi Admin';
-    state.loadingUsers = false;
-    state.loadingProducts = false;
-    state.loadingOrders = false;
-    state.loadingStats = false;
-    state.loadingDistributorRequests = false; // Reset tất cả loading khi có lỗi
-  }
+  // Cập nhật/xóa user trong tất cả các list
+  UPDATE_ADMIN_USER_IN_LISTS(state, user) {
+    const up = (arr, key='users') => {
+      const idx = arr.findIndex(u => u._id === user._id);
+      if (idx !== -1) arr.splice(idx, 1, user);
+    };
+    up(state.users);
+    up(state.recentUsersDashboard);
+    up(state.distributorRequests.users);
+    up(state.pendingDistributorRequestsDashboard, 'users');
+  },
+  REMOVE_ADMIN_USER_FROM_LISTS(state, userId) {
+    const rm = arr => arr.filter(u => u._id !== userId);
+    state.users = rm(state.users);
+    state.recentUsersDashboard = rm(state.recentUsersDashboard);
+    state.distributorRequests.users = rm(state.distributorRequests.users);
+    state.pendingDistributorRequestsDashboard = rm(state.pendingDistributorRequestsDashboard);
+  },
 };
 
 const actions = {
-  // --- User Management Actions ---
+  // --- Users list ---
   async fetchUsers({ commit }, params = {}) {
-    commit('ADMIN_USERS_REQUEST');
+    commit('REQUEST_INITIATED', 'loadingUsers');
     try {
-      const response = await apiClient.get('/users', { params });
-      commit('SET_ADMIN_USERS', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Admin: Lỗi fetchUsers:", error);
-      commit('ADMIN_ERROR', error);
-      // commit('SET_ADMIN_USERS', []); // Mutation lỗi đã reset loading
-      throw error;
-    }
-  },
-  async fetchUserById({ commit }, userId) {
-    commit('ADMIN_USERS_REQUEST');
-    try {
-      const response = await apiClient.get(`/users/${userId}`);
-      commit('ADMIN_USERS_REQUEST'); // Reset loading/error thành công
-      return response.data;
-    } catch (error) {
-      console.error("Admin: Lỗi fetchUserById:", error);
-      commit('ADMIN_ERROR', error);
-      throw error;
-    }
-  },
-  async updateUser({ commit }, { userId, userData }) {
-    commit('ADMIN_USERS_REQUEST');
-    try {
-      const response = await apiClient.put(`/users/${userId}`, userData);
-      commit('UPDATE_ADMIN_USER', response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Admin: Lỗi updateUser:", error);
-      commit('ADMIN_ERROR', error);
-      throw error;
+      const { data } = await apiClient.get('/admin/users', { params });
+      commit('SET_ADMIN_USERS', data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingUsers', error: err });
+      throw err;
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingUsers');
     }
   },
   async deleteUser({ commit }, userId) {
-    commit('ADMIN_USERS_REQUEST');
     try {
-      await apiClient.delete(`/users/${userId}`);
-      commit('REMOVE_ADMIN_USER', userId);
-    } catch (error) {
-      console.error("Admin: Lỗi deleteUser:", error);
-      commit('ADMIN_ERROR', error);
-      throw error;
+      await apiClient.delete(`/admin/users/${userId}`);
+      commit('REMOVE_ADMIN_USER_FROM_LISTS', userId);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: null, error: err });
+      throw err;
     }
   },
 
-   // --- Dashboard Stats Action ---
-   async fetchDashboardStats({ commit }) {
-     commit('ADMIN_STATS_REQUEST');
-     try {
-       const response = await apiClient.get('/admin/stats'); // Đảm bảo endpoint này tồn tại
-       commit('SET_ADMIN_STATS', response.data);
-       return response.data;
-     } catch (error) {
-       console.error("Admin: Lỗi fetchDashboardStats:", error);
-       commit('ADMIN_ERROR', error);
-       // Không throw để dashboard vẫn hiển thị phần khác
-     }
-   },
-
-   // --- Actions quản lý Orders ---
-   async fetchOrders({ commit }, params = {}) {
-       commit('ADMIN_ORDERS_REQUEST');
-       try {
-           const response = await apiClient.get('/admin/orders', { params }); // Đảm bảo endpoint này tồn tại
-           commit('SET_ADMIN_ORDERS', response.data); // Giả sử trả về { orders, page, pages, count }
-           return response.data;
-       } catch (error) {
-            console.error("Admin: Lỗi fetchOrders:", error);
-            commit('ADMIN_ERROR', error);
-            // commit('SET_ADMIN_ORDERS', []); // Mutation lỗi đã reset
-            throw error;
-       }
-   },
-   // ... action update order status ...
-
-   // --- Actions quản lý Products ---
-   async fetchProducts({ commit }, params = {}) {
-      commit('ADMIN_PRODUCTS_REQUEST');
-       try {
-           const response = await apiClient.get('/products', { params }); // Dùng chung API hoặc /admin/products
-           commit('SET_ADMIN_PRODUCTS', response.data.products || response.data); // Xử lý cả phân trang và không
-           return response.data;
-       } catch (error) {
-           console.error("Admin: Lỗi fetchProducts:", error);
-           commit('ADMIN_ERROR', error);
-           // commit('SET_ADMIN_PRODUCTS', []); // Mutation lỗi đã reset
-           throw error;
-       }
-   },
-   // ... actions create/update/delete product ...
-
-   // --- Actions quản lý Distributor Requests ---
-   async fetchDistributorRequests({ commit }, status = 'pending') { // Mặc định lấy pending
-     commit('ADMIN_DISTR_REQ_REQUEST'); // <<== Dùng mutation riêng
-     try {
-      let endpoint = '/users/distributors/requests';
-      // Kiểm tra status là chuỗi hợp lệ trước khi thêm vào query
-      if (typeof status === 'string' && ['pending', 'approved', 'rejected'].includes(status)) {
-          endpoint += `?status=${status}`;
-      }
-       const response = await apiClient.get(endpoint);
-       console.log('[ACTION admin/fetchDistributorRequests] API Response Data:', response.data);
-       console.log('[ACTION admin/fetchDistributorRequests] Preparing to commit:', response.data);
-
-       // >> SỬA TÊN MUTATION Ở ĐÂY <<
-       commit('SET_ADMIN_DISTRIBUTOR_REQUESTS', response.data);
-       console.log('[ACTION admin/fetchDistributorRequests] Commit successful');
-
-       return response.data;
-     } catch (error) {
-       console.error("Admin: Lỗi fetchDistributorRequests:", error);
-       commit('ADMIN_ERROR', error);
-       // commit('SET_ADMIN_DISTRIBUTOR_REQUESTS', []); // Mutation lỗi đã reset
-       throw error;
-     }
-   },
-   async manageDistributorRequest({ commit }, { userId, status }) { // Nhận userId và status
-    // Có thể dùng loading riêng hoặc chung
-    commit('ADMIN_DISTR_REQ_REQUEST'); // Bắt đầu loading cho request này
-    // Hoặc commit('ADMIN_USERS_REQUEST'); nếu dùng loading chung cho user
+  // --- Products list ---
+  async fetchProducts({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingProducts');
     try {
-      // Endpoint: PUT /users/:id/manage-distributor (Đảm bảo đúng)
-      const response = await apiClient.put(`/users/${userId}/manage-distributor`, { status });
-      const updatedUser = response.data.user || response.data; // Lấy user đã cập nhật
-  
-      console.log('[ACTION admin/manageDistributorRequest] User updated:', updatedUser);
-  
-      // Commit để cập nhật user trong danh sách requests hiện tại
-      commit('UPDATE_ADMIN_DISTRIBUTOR_REQUEST', updatedUser);
-  
-      // Commit để cập nhật user trong danh sách user chung
-      commit('UPDATE_ADMIN_USER', updatedUser);
-  
-      // Reset loading
-      commit('ADMIN_DISTR_REQ_REQUEST'); // Gọi lại để set loading = false (cần sửa mutation này hoặc tạo mutation riêng)
-      // Hoặc commit('ADMIN_USERS_REQUEST');
-  
-      return response.data; // Trả về kết quả
-    } catch (error) {
-      console.error("Admin: Lỗi manageDistributorRequest:", error);
-      commit('ADMIN_ERROR', error); // Commit lỗi chung, sẽ reset tất cả loading
-      throw error; // Ném lỗi để component xử lý
+      const { data } = await apiClient.get('/admin/products', { params });
+      commit('SET_ADMIN_PRODUCTS', data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingProducts', error: err });
+      throw err;
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingProducts');
+    }
+  },
+  async deleteProduct({ commit, dispatch }, id) {
+    try {
+      await apiClient.delete(`/admin/products/${id}`);
+      // sau khi xóa, refres hlist
+      dispatch('fetchProducts', { page: state.productsPagination.page });
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: null, error: err });
+      throw err;
+    }
+  },
+
+  // --- Orders list ---
+  async fetchOrders({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingOrders');
+    try {
+      const { data } = await apiClient.get('/admin/orders', { params });
+      commit('SET_ADMIN_ORDERS', data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingOrders', error: err });
+      throw err;
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingOrders');
+    }
+  },
+  async updateOrderStatus({ commit, dispatch, state }, { orderId, statusData }) {
+    try {
+      await apiClient.put(`/admin/orders/${orderId}/status`, statusData);
+      // reload current page
+      const { page, limit } = state.orders;
+      dispatch('fetchOrders', { page, limit });
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: null, error: err });
+      throw err;
+    }
+  },
+
+  // --- Distributor Requests list ---
+  async fetchDistributorRequests({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingDistributorRequests');
+    try {
+      const query = {
+        role: 'distributor',
+        'distributorInfo.status': params.status || 'pending',
+        page: params.page, limit: params.limit
+      };
+      const { data } = await apiClient.get('/admin/users', { params: query });
+      commit('SET_ADMIN_DISTRIBUTOR_REQUESTS', data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingDistributorRequests', error: err });
+      throw err;
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingDistributorRequests');
+    }
+  },
+  async manageDistributorRequest({ commit, dispatch, state }, { userId, status }) {
+    try {
+      const { data } = await apiClient.put(`/admin/users/${userId}/distributor-status`, { status });
+      commit('UPDATE_ADMIN_USER_IN_LISTS', data.user || data);
+      // reload pending
+      dispatch('fetchDistributorRequests', {
+        status: 'pending',
+        page: state.distributorRequests.page,
+        limit: state.distributorRequests.limit
+      });
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: null, error: err });
+      throw err;
+    }
+  },
+
+  // --- Dashboard ---
+  async fetchDashboardStats({ commit }) {
+    commit('REQUEST_INITIATED', 'loadingStatsDashboard');
+    try {
+      const { data } = await apiClient.get('/admin/stats');
+      commit('SET_DASHBOARD_STATS', data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingStatsDashboard', error: err });
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingStatsDashboard');
+    }
+  },
+  async fetchOrdersForDashboard({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingRecentOrdersDashboard');
+    try {
+      const { data } = await apiClient.get('/admin/orders', { params });
+      commit('SET_RECENT_ORDERS_DASHBOARD', data.orders);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingRecentOrdersDashboard', error: err });
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingRecentOrdersDashboard');
+    }
+  },
+  async fetchProductsForDashboard({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingRecentProductsDashboard');
+    try {
+      const { data } = await apiClient.get('/admin/products', { params });
+      commit('SET_RECENT_PRODUCTS_DASHBOARD', data.products || data.data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingRecentProductsDashboard', error: err });
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingRecentProductsDashboard');
+    }
+  },
+  async fetchUsersForDashboard({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingRecentUsersDashboard');
+    try {
+      const { data } = await apiClient.get('/admin/users', { params });
+      commit('SET_RECENT_USERS_DASHBOARD', data.users || data.data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingRecentUsersDashboard', error: err });
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingRecentUsersDashboard');
+    }
+  },
+  async fetchPendingDistributorRequestsForDashboard({ commit }, params = {}) {
+    commit('REQUEST_INITIATED', 'loadingPendingDistributorRequestsDashboard');
+    try {
+      const query = {
+        role: 'distributor',
+        'distributorInfo.status': 'pending',
+        page: 1, limit: params.limit
+      };
+      const { data } = await apiClient.get('/admin/users', { params: query });
+      commit('SET_PENDING_DISTR_REQ_DASHBOARD', data.users || data.data);
+    } catch (err) {
+      commit('REQUEST_FAILURE', { loadingKey: 'loadingPendingDistributorRequestsDashboard', error: err });
+    } finally {
+      commit('REQUEST_COMPLETED', 'loadingPendingDistributorRequestsDashboard');
     }
   },
 };
 
 export default {
-  namespaced: true, // Quan trọng cho admin module
+  namespaced: true,
   state,
   getters,
   mutations,

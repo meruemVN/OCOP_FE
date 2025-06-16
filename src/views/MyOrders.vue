@@ -40,7 +40,7 @@
           </div>
           <p class="text-muted mb-4 fs-5">Bạn chưa có đơn hàng nào {{ activeTab !== 'all' ? 'trong trạng thái này' : '' }}.</p>
           <router-link
-            to="/products"
+            to="/"
             class="btn btn-success btn-lg px-4 rounded-pill shadow-sm"
           >
             <i class="fas fa-shopping-cart me-2"></i>

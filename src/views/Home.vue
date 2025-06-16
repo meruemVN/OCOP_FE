@@ -112,6 +112,23 @@
 
         <!-- Danh sách sản phẩm chính -->
         <section>
+          <!-- THANH TÌM KIẾM -->
+            <div class="mb-3 input-group">
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Tìm kiếm sản phẩm..."
+                v-model="searchKeyword"
+                @keyup.enter="handleSearch"
+              />
+              <button class="btn btn-outline-secondary" type="button" @click="handleSearch">
+                <i class="fas fa-search"></i>
+              </button>
+              <button v-if="searchKeyword" class="btn btn-outline-danger" type="button" @click="clearSearch">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-3">
                 <h3 class="mb-2 mb-sm-0 fw-bold text-success">
                     <i class=""></i>Sản phẩm {{ mainListTitle }}
@@ -267,17 +284,17 @@ import ProductCard from '@/components/products/ProductCard.vue';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import {
     faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
-    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
+    faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp,
     faExclamationCircle, faStream,
-    faCommentDots, faPaperPlane, faTimes // Chat icons
+    faCommentDots, faPaperPlane, faSearch, faTimes // Chat icons, Search, Times
 } from '@fortawesome/free-solid-svg-icons';
-import axios from 'axios'; // Import axios
+import axios from 'axios';
 
 library.add(
     faTags, faMapMarkerAlt, faDollarSign, faSyncAlt, faLightbulb, faLeaf,
     faShoppingBasket, faArrowLeft, faChevronDown, faChevronUp, faSearch,
     faExclamationCircle, faStream,
-    faCommentDots, faPaperPlane, faTimes // Chat icons
+    faCommentDots, faPaperPlane, faTimes
 );
 
 const store = useStore();
@@ -288,6 +305,7 @@ const PROVINCES = [
    "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", "Bắc Ninh", "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước", "Bình Thuận", "Cà Mau", "Cần Thơ", "Cao Bằng", "Đà Nẵng", "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp", "Gia Lai", "Hà Giang", "Hà Nam", "Hà Nội", "Hà Tĩnh", "Hải Dương", "Hải Phòng", "Hậu Giang", "Hòa Bình", "Hưng Yên", "Khánh Hòa", "Kiên Giang", "Kon Tum", "Lai Châu", "Lâm Đồng", "Lạng Sơn", "Lào Cai", "Long An", "Nam Định", "Nghệ An", "Ninh Bình", "Ninh Thuận", "Phú Thọ", "Phú Yên", "Quảng Bình", "Quảng Nam", "Quảng Ngãi", "Quảng Ninh", "Quảng Trị", "Sóc Trăng", "Sơn La", "Tây Ninh", "Thái Bình", "Thái Nguyên", "Thanh Hóa", "Thừa Thiên Huế", "Tiền Giang", "TP. Hồ Chí Minh", "Trà Vinh", "Tuyên Quang", "Vĩnh Long", "Vĩnh Phúc", "Yên Bái"
 ];
 const CATEGORIES = ["Nông sản khô", "Thực phẩm chế biến", "Đồ uống", "Thảo dược", "Thủ công mỹ nghệ", "Đặc sản vùng miền", "Sản phẩm OCOP", "Khác"];
+const PAGE_SIZE = 12;
 
 // --- State cho danh sách sản phẩm chính (Lấy từ Vuex Getters) ---
 const loadingMainProducts = computed(() => store.getters['product/isProductLoading']);
@@ -304,6 +322,7 @@ const filterPrice = ref({ min: null, max: null });
 const sortBy = ref('popular');
 const initialProvinceCount = 10;
 const showAllProvinces = ref(false);
+const searchKeyword = ref('');
 
 // --- State cho mục gợi ý (chung) ---
 const defaultSuggestedProducts = ref([]);
@@ -336,11 +355,20 @@ const displayedProvinces = computed(() => {
 });
 
 const mainListTitle = computed(() => {
-    if (selectedCategory.value && selectedProvince.value) {
-        return `thuộc "${selectedCategory.value}" tại ${selectedProvince.value}`;
+    let titleParts = [];
+    if (searchKeyword.value && searchKeyword.value.trim() !== '') {
+        titleParts.push(`cho "${searchKeyword.value.trim()}"`);
     }
-    if (selectedCategory.value) return `thuộc "${selectedCategory.value}"`;
-    if (selectedProvince.value) return `tại ${selectedProvince.value}`;
+    if (selectedCategory.value) {
+        titleParts.push(`thuộc "${selectedCategory.value}"`);
+    }
+    if (selectedProvince.value) {
+        titleParts.push(`tại ${selectedProvince.value}`);
+    }
+
+    if (titleParts.length > 0) {
+        return titleParts.join(' ');
+    }
     return 'Toàn quốc';
 });
 
@@ -474,20 +502,58 @@ const pageNumbers = computed(() => {
 // --- Methods ---
 const fetchMainProductList = async (page = 1) => {
   try {
-    const params = {
-        pageNumber: page, pageSize: 12,
-        category: selectedCategory.value,
-        province: selectedProvince.value,
-        minPrice: filterPrice.value.min,
-        maxPrice: filterPrice.value.max,
-        sortBy: sortBy.value
-    };
-    Object.keys(params).forEach(key => (params[key] == null || params[key] === '') && delete params[key]);
-    await store.dispatch('product/fetchMainProducts', params);
-  } catch (error) {
-    if(!mainProductsError.value && !error.message?.includes('aborted')) {
-        toast.error(error?.error || error?.message || "Lỗi tải sản phẩm.");
+    let effectivePageSize = PAGE_SIZE; // Giá trị pageSize mặc định
+    let effectivePage = page;
+
+    // NẾU CÓ TỪ KHÓA TÌM KIẾM, KHÔNG PHÂN TRANG (HIỂN THỊ TẤT CẢ)
+    if (searchKeyword.value && searchKeyword.value.trim() !== '') {
+      effectivePageSize = -1; // Gửi -1 (hoặc một số lớn, ví dụ 10000) để backend hiểu là lấy tất cả
+                            // Hoặc bạn có thể KHÔNG gửi 'perPage' và 'page' luôn
+                            // Tuy nhiên, việc gửi -1 và để backend xử lý sẽ rõ ràng hơn.
+      effectivePage = 1;    // Khi lấy tất cả, luôn coi là trang 1
     }
+
+    const apiParams = {
+        // page: effectivePage, // Tạm thời bỏ page khi searchKeyword có giá trị
+        // perPage: effectivePageSize, // Tạm thời bỏ perPage khi searchKeyword có giá trị
+        category: selectedCategory.value,
+        origin: selectedProvince.value,
+        priceMin: filterPrice.value.min,
+        priceMax: filterPrice.value.max,
+        sort_by: sortBy.value,
+    };
+
+    // Chỉ thêm page và perPage nếu KHÔNG có searchKeyword hoặc searchKeyword rỗng
+    if (searchKeyword.value && searchKeyword.value.trim() !== '') {
+      apiParams.keyword = searchKeyword.value.trim();
+      // Khi có keyword, KHÔNG gửi 'page' và 'per_page'
+      // Backend sẽ hiểu là lấy tất cả kết quả khớp keyword.
+      console.log(`Fetching with keyword: '${apiParams.keyword}'. No pagination params sent.`);
+    } else {
+      // Khi KHÔNG có keyword (hoặc keyword rỗng), gửi 'page' và 'per_page' để phân trang
+      apiParams.page = page;
+      apiParams.per_page = PAGE_SIZE;
+      console.log(`Fetching without keyword. Page: ${apiParams.page}, Per Page: ${apiParams.per_page}`);
+    }
+
+
+    // Remove null or empty string parameters
+    Object.keys(apiParams).forEach(key => {
+        if (apiParams[key] == null || apiParams[key] === '' || apiParams[key] === undefined) {
+            delete apiParams[key];
+        }
+    });
+
+    console.log("HomePage.vue - About to dispatch fetchMainProducts with apiParams:", JSON.stringify(apiParams));
+    await store.dispatch('product/fetchMainProducts', apiParams);
+
+  } catch (error) {
+    if(!mainProductsError.value && error.message && !error.message.includes('aborted')) {
+        toast.error(error?.response?.data?.message || error?.error || error?.message || "Lỗi tải sản phẩm.");
+    } else if (!mainProductsError.value && !error.message) {
+        toast.error("Lỗi tải sản phẩm không xác định.");
+    }
+    console.error("Error fetching main product list in HomePage.vue:", error);
   }
 };
 
@@ -519,6 +585,19 @@ const fetchSuggestionData = () => {
     }
 };
 
+const handleSearch = () => {
+  // Khi tìm kiếm, luôn fetch từ trang 1 và logic bỏ qua page/per_page sẽ được áp dụng
+  // trong fetchMainProductList nếu searchKeyword có giá trị.
+  console.log("Handling search for keyword:", searchKeyword.value);
+  fetchMainProductList(1); // Gọi fetchMainProductList, nó sẽ tự xử lý việc có gửi page/per_page hay không
+};
+
+const clearSearch = () => {
+  searchKeyword.value = '';
+  console.log("Search cleared, fetching all products (paginated)");
+  fetchMainProductList(1); // Fetch lại với keyword rỗng, sẽ có phân trang
+};
+
 const applyFiltersAndFetch = (page = 1) => { fetchMainProductList(page); };
 const selectCategory = (categoryName) => { selectedCategory.value = categoryName; applyFiltersAndFetch(1); };
 const selectProvince = (provinceName) => { selectedProvince.value = provinceName; applyFiltersAndFetch(1); };
@@ -527,10 +606,16 @@ const resetPriceFilter = () => { filterPrice.value = { min: null, max: null }; a
 const changeSort = (sortKeyName) => { sortBy.value = sortKeyName; applyFiltersAndFetch(1); };
 
 const resetAllFilters = () => {
-    selectedCategory.value = null; selectedProvince.value = null;
-    filterPrice.value = { min: null, max: null }; sortBy.value = 'popular';
-    store.dispatch('product/clearProductState');
-    applyFiltersAndFetch(1);
+    selectedCategory.value = null;
+    selectedProvince.value = null;
+    filterPrice.value = { min: null, max: null };
+    sortBy.value = 'popular';
+    searchKeyword.value = ''; // Reset cả searchKeyword
+
+    store.dispatch('product/clearProductState'); // Nếu có
+    console.log("All filters reset, fetching paginated products from page 1");
+    fetchMainProductList(1); // Gọi fetch với keyword rỗng, sẽ phân trang
+
     store.dispatch('recommendation/clearAllRecommendationData');
     defaultSuggestedProducts.value = [];
     nextTick(fetchSuggestionData);
@@ -538,10 +623,18 @@ const resetAllFilters = () => {
 
 const changePage = (newPage) => {
     const currentPagination = pagination.value || { page: 1, pages: 0 };
+    // Kiểm tra newPage có hợp lệ và khác trang hiện tại không
     if (newPage >= 1 && newPage <= currentPagination.pages && newPage !== currentPagination.page) {
-        applyFiltersAndFetch(newPage);
-         const productListElement = document.getElementById('productListSection');
-         if (productListElement) productListElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        console.log(`Changing page to: ${newPage}`); // DEBUG
+        applyFiltersAndFetch(newPage); // Hoặc trực tiếp fetchMainProductList(newPage)
+
+        // Scroll to top of product list after page change
+        const productListElement = document.getElementById('productListSection');
+        if (productListElement) {
+            productListElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else {
+        console.log(`Not changing page. newPage: ${newPage}, currentPage: ${currentPagination.page}, totalPages: ${currentPagination.pages}`); // DEBUG
     }
 };
 const handleAddToCart = async ({ productId, quantity }) => {
